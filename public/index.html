@@ -17,6 +17,9 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
 
+    <!-- حاوية الإشعارات الداخلية الأنيقة (Toast Container) -->
+    <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 space-y-2 pointer-events-none"></div>
+
     <!-- شاشة تسجيل الدخول -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-2xl w-full max-w-md">
@@ -46,23 +49,23 @@
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات الكلية (بدون منتهي الصلاحية) -->
+        <!-- كروت الإحصائيات الكلية مع حركات تحميل (Pulse) -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
-                <p id="stat-total" class="text-xl font-bold text-white mt-0.5">0</p>
+                <p id="stat-total" class="text-xl font-bold text-white mt-0.5 animate-pulse">جاري...</p>
             </div>
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">المشتركين الفعالين</p>
-                <p id="stat-active" class="text-xl font-bold text-emerald-400 mt-0.5">0</p>
+                <p id="stat-active" class="text-xl font-bold text-emerald-400 mt-0.5 animate-pulse">جاري...</p>
             </div>
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">المتصلين الآن</p>
-                <p id="stat-online" class="text-xl font-bold text-blue-400 mt-0.5">0</p>
+                <p id="stat-online" class="text-xl font-bold text-blue-400 mt-0.5 animate-pulse">جاري...</p>
             </div>
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">غير المتصلين</p>
-                <p id="stat-offline" class="text-xl font-bold text-slate-400 mt-0.5">0</p>
+                <p id="stat-offline" class="text-xl font-bold text-slate-400 mt-0.5 animate-pulse">جاري...</p>
             </div>
         </div>
 
