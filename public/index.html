@@ -46,8 +46,8 @@
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات الكلية -->
-        <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+        <!-- كروت الإحصائيات الكلية (بدون منتهي الصلاحية) -->
+        <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
                 <p id="stat-total" class="text-xl font-bold text-white mt-0.5">0</p>
@@ -55,10 +55,6 @@
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">المشتركين الفعالين</p>
                 <p id="stat-active" class="text-xl font-bold text-emerald-400 mt-0.5">0</p>
-            </div>
-            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
-                <p class="text-[10px] text-slate-400">منتهي الصلاحية</p>
-                <p id="stat-expired" class="text-xl font-bold text-rose-400 mt-0.5">0</p>
             </div>
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">المتصلين الآن</p>
@@ -98,7 +94,7 @@
                                     <th class="p-3">المشترك / اسم المستخدم</th>
                                     <th class="p-3">حالة الاشتراك</th>
                                     <th class="p-3">الاتصال</th>
-                                    <th class="p-3">نوع الاشتراك / الوسم</th>
+                                    <th class="p-3">نوع الإشتراك</th>
                                 </tr>
                             </thead>
                             <tbody id="subscribers-table-body" class="divide-y divide-slate-700/50"></tbody>
