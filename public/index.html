@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style> body { font-family: 'Tajawal', sans-serif; } </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen pb-20">
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
 
     <!-- شاشة تسجيل الدخول -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
@@ -31,7 +31,7 @@
         </div>
     </div>
 
-    <!-- لوحة التحكم الرئيسية بأقسام متفرقة -->
+    <!-- لوحة التحكم الرئيسية -->
     <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
         <!-- شريط علوي -->
         <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 p-4 flex justify-between items-center">
@@ -61,7 +61,7 @@
 
         <!-- محتوى الأقسام -->
         <main class="p-4 flex-1">
-            <!-- قسم المشتركين -->
+            <!-- 1. قسم المشتركين -->
             <section id="tab-subscribers" class="tab-content space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
@@ -78,7 +78,7 @@
                             <thead class="bg-slate-900 text-slate-400">
                                 <tr>
                                     <th class="p-3"><input type="checkbox" id="select-all"></th>
-                                    <th class="p-3">المشترك / Username</th>
+                                    <th class="p-3">اسم المشترك / Username</th>
                                     <th class="p-3">حالة الاشتراك</th>
                                     <th class="p-3">الباقة</th>
                                 </tr>
@@ -89,7 +89,7 @@
                 </div>
             </section>
 
-            <!-- قسم الوكلاء -->
+            <!-- 2. قسم الوكلاء -->
             <section id="tab-agents" class="tab-content hidden space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4">
                     <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2">إضافة وكيل ثانوي جديد</h2>
@@ -104,7 +104,7 @@
                 </div>
             </section>
 
-            <!-- قسم التذاكر -->
+            <!-- 3. قسم التذاكر -->
             <section id="tab-tickets" class="tab-content hidden space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
                     <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2 mb-3">تذاكر الدعم الفني</h2>
@@ -112,7 +112,7 @@
                 </div>
             </section>
 
-            <!-- قسم المهام -->
+            <!-- 4. قسم المهام -->
             <section id="tab-tasks" class="tab-content hidden space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
                     <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2 mb-3">مهام FTTH الفنية</h2>
@@ -122,17 +122,17 @@
         </main>
 
         <!-- شريط التنقل السفلي للأقسام -->
-        <nav class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex justify-around p-2 z-50">
-            <button onclick="switchTab('subscribers', 'المشتركين')" class="nav-btn text-indigo-400 flex flex-col items-center gap-1 text-[11px] font-bold" id="btn-subscribers">
+        <nav class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex justify-around p-3 z-50">
+            <button onclick="switchTab('subscribers', 'المشتركين')" class="nav-btn text-indigo-400 flex flex-col items-center gap-1 text-xs font-bold" id="btn-subscribers">
                 <span>المشتركين</span>
             </button>
-            <button onclick="switchTab('agents', 'الوكلاء')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-[11px]" id="btn-agents">
+            <button onclick="switchTab('agents', 'الوكلاء')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs" id="btn-agents">
                 <span>الوكلاء</span>
             </button>
-            <button onclick="switchTab('tickets', 'التذاكر')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-[11px]" id="btn-tickets">
+            <button onclick="switchTab('tickets', 'التذاكر')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs" id="btn-tickets">
                 <span>التذاكر</span>
             </button>
-            <button onclick="switchTab('tasks', 'المهام')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-[11px]" id="btn-tasks">
+            <button onclick="switchTab('tasks', 'المهام')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs" id="btn-tasks">
                 <span>المهام</span>
             </button>
         </nav>
