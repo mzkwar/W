@@ -11,6 +11,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// عملية تسجيل الدخول والجلب الفوري لحظياً
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
@@ -92,6 +93,7 @@ function getSubscriptionType(sub) {
     return extractValue(sub.salesType) || 'SELF';
 }
 
+// جلب المشتركين وجلسات الاتصال بالتوازي مع مطابقة متقدمة وشاملة
 async function loadSubscribersFast() {
     const tbody = document.getElementById('subscribers-table-body');
 
@@ -115,25 +117,42 @@ async function loadSubscribersFast() {
 
         cachedSubscribers = Array.isArray(subData) ? subData : (subData.items || subData.subscribers || subData.data || []);
         
+        // استخراج قائمة الجلسات النشطة
         const onlineItems = Array.isArray(onlineData) ? onlineData : (onlineData.items || onlineData.sessions || onlineData.data || []);
+        
+        // تجميع كل صيغ اليوزرات المتصلة بمرونة عالية
         const onlineUsernames = new Set();
         
         onlineItems.forEach(s => {
-            let u = s.username || s.subscriberUsername || s.id;
-            if (!u && s.subscriber) u = s.subscriber.id || s.subscriber.displayValue;
-            if (u) onlineUsernames.add(cleanUsername(u).toLowerCase());
+            const possibleUser = s.username || s.userName || s.subscriberUsername || s.user || s.id || 
+                                (s.subscriber && (s.subscriber.id || s.subscriber.displayValue || s.subscriber.username));
+            
+            if (possibleUser) {
+                const cleaned = cleanUsername(possibleUser).trim().toLowerCase();
+                if (cleaned) onlineUsernames.add(cleaned);
+            }
         });
 
+        console.log("عدد المتصلين الجاري جلبهم:", onlineUsernames.size, Array.from(onlineUsernames));
+
+        // مطابقة حالة الاتصال لكل مشترك
         cachedSubscribers = cachedSubscribers.map(sub => {
-            const u = cleanUsername(sub.username || sub.id || (sub.subscriber && sub.subscriber.id));
-            const isOnline = onlineUsernames.has(u.toLowerCase());
+            const u1 = cleanUsername(sub.username).trim().toLowerCase();
+            const u2 = cleanUsername(sub.id).trim().toLowerCase();
+            const u3 = sub.subscriber ? cleanUsername(sub.subscriber.id || sub.subscriber.displayValue).trim().toLowerCase() : '';
+
+            const isOnline = (u1 && onlineUsernames.has(u1)) || 
+                             (u2 && onlineUsernames.has(u2)) || 
+                             (u3 && onlineUsernames.has(u3)) || 
+                             Boolean(sub.isOnline || sub.online);
+
             return { ...sub, _isOnline: isOnline };
         });
 
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
     } catch (err) {
-        console.error(err);
+        console.error("خطأ في جلب البيانات:", err);
         tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين أو الجلسات</td></tr>`;
     }
 }
