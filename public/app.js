@@ -1,10 +1,14 @@
 let authToken = localStorage.getItem('ftth_token') || '';
-let cachedSubscribers = [];
+let cachedSubscribers = []; // تخزين مؤقت لجلب البيانات فوراً بدون أي تأخير
 
-// التحقق من الجلسة عند فتح التطبيق
+// التحقق من الجلسة وإظهار اللوحة فوراً إن وجدت لتجنب الوميض
 window.addEventListener('DOMContentLoaded', () => {
     if (authToken) {
-        showDashboard();
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('dashboard-screen').classList.remove('hidden');
+        loadSubscribersFast();
+        loadAgents();
+        loadTickets();
     }
 });
 
@@ -12,7 +16,7 @@ window.addEventListener('DOMContentLoaded', () => {
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
-    btn.innerText = 'جاري الاتصال بـ admin.ftth.iq...';
+    btn.innerText = 'جاري الاتصال...';
     btn.disabled = true;
 
     try {
@@ -29,44 +33,23 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (res.ok && data.access_token) {
             authToken = `Bearer ${data.access_token}`;
             localStorage.setItem('ftth_token', authToken);
-            showDashboard();
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('hidden');
+            loadSubscribersFast();
+            loadAgents();
+            loadTickets();
         } else {
-            alert(data.message || data.error || "فشل تسجيل الدخول، تحقق من البيانات.");
+            alert(data.message || data.error || "فشل تسجيل الدخول");
         }
     } catch (err) {
-        console.error(err);
-        alert("حدث خطأ في الاتصال بالسيرفر، تأكد أن السيرفر يعمل.");
+        alert("حدث خطأ في الاتصال بالسيرفر");
     } finally {
         btn.innerText = 'دخول النظام';
         btn.disabled = false;
     }
 });
 
-function showDashboard() {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('dashboard-screen').classList.remove('hidden');
-    loadSubscribers();
-    loadAgents();
-    loadTickets();
-}
-
-// دالة مخصصة للطلبات مع فحص انتهاء الجلسة (401)
-async function fetchWithAuth(url, options = {}) {
-    options.headers = options.headers || {};
-    options.headers['Authorization'] = authToken;
-    
-    const res = await fetch(url, options);
-    
-    if (res.status === 401) {
-        // انتهت صلاحية التوكن أو تم رفضه
-        alert("انتهت صلاحية الجلسة أو بيانات الدخول غير صالحة. يرجى تسجيل الدخول مرة أخرى.");
-        logout();
-        throw new Error("Unauthorized");
-    }
-    return res;
-}
-
-// التنقل بين الأقسام
+// التنقل بين الأقسام بدون أي إعادة تحميل
 function switchTab(tabName, title) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
@@ -79,29 +62,30 @@ function switchTab(tabName, title) {
     document.getElementById(`btn-${tabName}`).classList.add('text-indigo-400', 'font-bold');
 }
 
-// جلب المشتركين
-async function loadSubscribers() {
+// جلب المشتركين بسرعة فائقة
+async function loadSubscribersFast() {
     const tbody = document.getElementById('subscribers-table-body');
-    
+
+    // إذا كانت البيانات مخزنة مسبقاً، اعرضها فوراً بدون انتظار السيرفر
     if (cachedSubscribers.length > 0) {
         renderSubscribers(cachedSubscribers);
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">جاري جلب المشتركين...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">جاري جلب المشتركين...</td></tr>`;
 
     try {
-        const res = await fetchWithAuth('/api/ftth/subscriptions');
+        const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
+        if (res.status === 401) { logout(); return; }
         const data = await res.json();
         cachedSubscribers = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
-        
         renderSubscribers(cachedSubscribers);
     } catch (err) {
-        console.error("خطأ في جلب المشتركين:", err);
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
     }
 }
 
+// عرض المشتركين وتحديث الإحصائيات الفعالة والمنتهية وحالة الاتصال
 function renderSubscribers(items) {
     const tbody = document.getElementById('subscribers-table-body');
     tbody.innerHTML = '';
@@ -111,15 +95,16 @@ function renderSubscribers(items) {
     let expired = 0;
 
     if (total === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">لا توجد بيانات مشتركين متاحة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">لا توجد بيانات متاحة</td></tr>`;
         return;
     }
 
-    items.forEach(sub => {
+    items.forEach((sub, index) => {
         const username = sub.username || sub.id || 'N/A';
         const fullName = sub.fullName || sub.name || sub.subscriberName || username;
         const isActive = sub.isActive !== undefined ? sub.isActive : (sub.status === 'Active' || sub.status === 'فعال' || sub.state === 'Active');
-        const plan = sub.packageName || sub.planName || sub.package || 'باقة FTTH';
+        const isOnline = sub.isOnline || sub.online || sub.connectionStatus === 'Online' || sub.isConnected;
+        const plan = sub.packageName || sub.planName || sub.package || 'باقة الإنترنت';
 
         if (isActive) active++;
         else expired++;
@@ -128,12 +113,17 @@ function renderSubscribers(items) {
             <tr class="hover:bg-slate-700/30 transition">
                 <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
                 <td class="p-3">
-                    <div class="font-bold text-white">${fullName}</div>
-                    <div class="text-[10px] text-slate-400">@${username}</div>
+                    <a href="javascript:void(0)" onclick="showSubscriberDetails(${index})" class="font-bold text-indigo-400 hover:underline block">${fullName}</a>
+                    <span class="text-[10px] text-slate-400">@${username}</span>
                 </td>
                 <td class="p-3">
                     <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
                         ${isActive ? 'فعال' : 'منتهي'}
+                    </span>
+                </td>
+                <td class="p-3">
+                    <span class="px-2 py-0.5 rounded text-[10px] ${isOnline ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-700 text-slate-400'}">
+                        ${isOnline ? 'متصل' : 'غير متصل'}
                     </span>
                 </td>
                 <td class="p-3 text-slate-400">${plan}</td>
@@ -144,6 +134,41 @@ function renderSubscribers(items) {
     document.getElementById('stat-total').innerText = total;
     document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-expired').innerText = expired;
+}
+
+// ميزة البحث الفوري باسم المشترك أو اليوزر
+function filterSubscribers() {
+    const query = document.getElementById('search-input').value.toLowerCase();
+    const filtered = cachedSubscribers.filter(sub => {
+        const username = (sub.username || sub.id || '').toLowerCase();
+        const fullName = (sub.fullName || sub.name || sub.subscriberName || '').toLowerCase();
+        return username.includes(query) || fullName.includes(query);
+    });
+    renderSubscribers(filtered);
+}
+
+// عرض نافذة التفاصيل الكاملة عند الضغط على اسم المشترك
+function showSubscriberDetails(index) {
+    const sub = cachedSubscribers[index];
+    if (!sub) return;
+
+    const modalContent = document.getElementById('modal-content');
+    modalContent.innerHTML = '';
+
+    // توليد قائمة بكل الحقول المتوفرة في بيانات المشترك الأصلية
+    for (const [key, value] of Object.entries(sub)) {
+        if (typeof value === 'object' && value !== null) {
+            modalContent.innerHTML += `<div class="p-2 bg-slate-900 rounded-lg flex justify-between"><span class="text-slate-400">${key}:</span> <span class="text-right">${JSON.stringify(value)}</span></div>`;
+        } else {
+            modalContent.innerHTML += `<div class="p-2 bg-slate-900 rounded-lg flex justify-between"><span class="text-slate-400">${key}:</span> <span class="text-white font-medium text-right">${value ?? 'غير متوفر'}</span></div>`;
+        }
+    }
+
+    document.getElementById('subscriber-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('subscriber-modal').classList.add('hidden');
 }
 
 async function loadAgents() {
@@ -167,7 +192,7 @@ async function loadAgents() {
 
 async function loadTickets() {
     try {
-        const res = await fetchWithAuth('/api/ftth/tickets');
+        const res = await fetch('/api/ftth/tickets', { headers: { 'Authorization': authToken } });
         const data = await res.json();
         const list = document.getElementById('tickets-list');
         const items = data.items || [];
