@@ -96,7 +96,6 @@ function cleanUsername(userStr) {
     return raw.startsWith('@') ? raw.substring(1) : raw;
 }
 
-// استخراج نوع الاشتراك بالاعتماد على حقل self حصراً
 function getSubscriptionType(sub) {
     let typeVal = '';
     if (sub.self) {
@@ -120,9 +119,14 @@ async function loadSubscribersFast() {
 
     try {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
-        if (res.status === 401) { logout(); return; }
-        const subData = await res.json();
+        
+        if (res.status === 401) {
+            showToast("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً", "error");
+            logout();
+            return;
+        }
 
+        const subData = await res.json();
         cachedSubscribers = Array.isArray(subData) ? subData : (subData.items || subData.subscribers || subData.data || []);
         
         updateGlobalStats(cachedSubscribers);
@@ -217,7 +221,6 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// فتح البطاقة مع جلب معلومات جهاز الـ ONT من الـ API الجديد
 async function openSubscriberCardByUsername(targetUsername) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -229,11 +232,10 @@ async function openSubscriberCardByUsername(targetUsername) {
     document.getElementById('modal-sub-user').innerText = username;
 
     const container = document.getElementById('modal-content-card');
-    container.innerHTML = `<p class="text-center text-slate-400 py-4 animate-pulse">جاري جلب تفاصيل الحساب وجهاز الـ ONT...</p>`;
+    container.innerHTML = `<p class="text-center text-slate-400 py-4 animate-pulse">جاري جلب تفاصيل الحساب وبيانات الـ ONT...</p>`;
 
     document.getElementById('subscriber-modal').classList.remove('hidden');
 
-    // جلب تفاصيل الـ ONT الخاصة بالمشترك
     let ontData = null;
     try {
         const ontRes = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
@@ -267,7 +269,6 @@ async function openSubscriberCardByUsername(targetUsername) {
         'hasActiveSession': 'حالة الاتصال'
     };
 
-    // عرض بيانات المشترك الأساسية
     for (const [key, value] of Object.entries(sub)) {
         if (excludedFields.includes(key)) continue;
 
@@ -294,7 +295,6 @@ async function openSubscriberCardByUsername(targetUsername) {
         `;
     }
 
-    // عرض معلومات الـ ONT إن وجدت
     if (ontData) {
         container.innerHTML += `<div class="text-indigo-400 font-bold pt-2 border-t border-slate-700 text-center">معلومات جهاز الـ ONT</div>`;
         for (const [ontKey, ontVal] of Object.entries(ontData)) {
