@@ -8,13 +8,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style> 
         body { font-family: 'Tajawal', sans-serif; } 
-        /* منع وميض شاشة تسجيل الدخول عند وجود جلسة مخزنة مسبقاً */
-        <script>
-            if (localStorage.getItem('ftth_token')) {
-                document.write('<style>#login-screen { display: none !important; }</style>');
-            }
-        </script>
     </style>
+    <script>
+        if (localStorage.getItem('ftth_token')) {
+            document.write('<style>#login-screen { display: none !important; }</style>');
+        }
+    </script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
 
@@ -23,7 +22,7 @@
         <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-2xl w-full max-w-md">
             <div class="text-center mb-6">
                 <h2 class="text-2xl font-bold text-white">تسجيل الدخول - admin.ftth.iq</h2>
-                <p class="text-xs text-slate-400 mt-1">يتم حفظ الجلسة ودخول النظام مباشرة دون تأخير</p>
+                <p class="text-xs text-slate-400 mt-1">يتم حفظ الجلسة ودخول النظام مباشرة</p>
             </div>
             <form id="login-form" class="space-y-4">
                 <div>
@@ -42,12 +41,12 @@
     <!-- لوحة التحكم الرئيسية -->
     <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
         <!-- شريط علوي -->
-        <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 p-4 flex justify-between items-center">
+        <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 p-4 flex justify-between items-center">
             <h1 class="text-base font-bold text-white" id="header-title">المشتركين</h1>
-            <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs">تسجيل الخروج</button>
+            <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات -->
+        <!-- كروت الإحصائيات الكلية الثابتة -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
@@ -69,7 +68,7 @@
 
         <!-- محتوى الأقسام -->
         <main class="p-4 flex-1">
-            <!-- 1. قسم المشتركين -->
+            <!-- قسم المشتركين -->
             <section id="tab-subscribers" class="tab-content space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -82,7 +81,7 @@
                         </div>
                     </div>
                     
-                    <!-- حقل البحث الفوري -->
+                    <!-- حقل البحث السريع -->
                     <div>
                         <input type="text" id="search-input" oninput="filterSubscribers()" placeholder="🔍 ابحث باسم المشترك أو يوزر المشترك..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
                     </div>
@@ -92,9 +91,8 @@
                             <thead class="bg-slate-900 text-slate-400">
                                 <tr>
                                     <th class="p-3"><input type="checkbox" id="select-all"></th>
-                                    <th class="p-3">اسم المشترك / Username</th>
+                                    <th class="p-3">المشترك (الاسم / اليوزر)</th>
                                     <th class="p-3">حالة الاشتراك</th>
-                                    <th class="p-3">الاتصال</th>
                                     <th class="p-3">الباقة</th>
                                 </tr>
                             </thead>
@@ -104,7 +102,7 @@
                 </div>
             </section>
 
-            <!-- 2. قسم الوكلاء -->
+            <!-- قسم الوكلاء -->
             <section id="tab-agents" class="tab-content hidden space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4">
                     <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2">إضافة وكيل ثانوي جديد</h2>
@@ -119,7 +117,7 @@
                 </div>
             </section>
 
-            <!-- 3. قسم التذاكر -->
+            <!-- قسم التذاكر -->
             <section id="tab-tickets" class="tab-content hidden space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
                     <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2 mb-3">تذاكر الدعم الفني</h2>
@@ -127,7 +125,7 @@
                 </div>
             </section>
 
-            <!-- 4. قسم المهام -->
+            <!-- قسم المهام -->
             <section id="tab-tasks" class="tab-content hidden space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
                     <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2 mb-3">مهام FTTH الفنية</h2>
@@ -136,22 +134,29 @@
             </section>
         </main>
 
-        <!-- نافذة منبثقة (Modal) لعرض تفاصيل المشترك الكاملة -->
-        <div id="subscriber-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl">
+        <!-- بطاقة تفاصيل المشترك المنبثقة (Profile Card) -->
+        <div id="subscriber-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
                 <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-                    <h3 class="text-base font-bold text-indigo-400">تفاصيل المشترك الكاملة</h3>
-                    <button onclick="closeModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-sm">👤</div>
+                        <div>
+                            <h3 id="modal-sub-name" class="text-sm font-bold text-white">تفاصيل المشترك</h3>
+                            <p id="modal-sub-user" class="text-[10px] text-slate-400">@username</p>
+                        </div>
+                    </div>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
                 </div>
-                <div id="modal-content" class="space-y-2 text-xs text-slate-200 max-h-[70vh] overflow-y-auto pr-1">
-                    <!-- يتم تعبئتها ديناميكياً -->
-                </div>
-                <button onclick="closeModal()" class="w-full bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-xl font-bold text-xs">إغلاق</button>
+                
+                <!-- حاوية بطاقة البيانات المصممة -->
+                <div id="modal-content-card" class="space-y-2.5 text-xs max-h-[60vh] overflow-y-auto pr-1"></div>
+
+                <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg">إغلاق البطاقة</button>
             </div>
         </div>
 
-        <!-- شريط التنقل السفلي للأقسام -->
-        <nav class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex justify-around p-3 z-40">
+        <!-- شريط التنقل السفلي -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex justify-around p-3 z-30">
             <button onclick="switchTab('subscribers', 'المشتركين')" class="nav-btn text-indigo-400 flex flex-col items-center gap-1 text-xs font-bold" id="btn-subscribers">
                 <span>المشتركين</span>
             </button>
