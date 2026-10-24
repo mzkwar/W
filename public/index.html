@@ -46,8 +46,8 @@
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات الكلية الثابتة -->
-        <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <!-- كروت الإحصائيات الكلية -->
+        <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
                 <p id="stat-total" class="text-xl font-bold text-white mt-0.5">0</p>
@@ -61,8 +61,12 @@
                 <p id="stat-expired" class="text-xl font-bold text-rose-400 mt-0.5">0</p>
             </div>
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
-                <p class="text-[10px] text-slate-400">الوكلاء الثانويين</p>
-                <p id="stat-agents" class="text-xl font-bold text-indigo-400 mt-0.5">0</p>
+                <p class="text-[10px] text-slate-400">المتصلين الآن</p>
+                <p id="stat-online" class="text-xl font-bold text-blue-400 mt-0.5">0</p>
+            </div>
+            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
+                <p class="text-[10px] text-slate-400">غير المتصلين</p>
+                <p id="stat-offline" class="text-xl font-bold text-slate-400 mt-0.5">0</p>
             </div>
         </div>
 
@@ -83,7 +87,7 @@
                     
                     <!-- حقل البحث السريع -->
                     <div>
-                        <input type="text" id="search-input" oninput="filterSubscribers()" placeholder="🔍 ابحث باسم المشترك أو يوزر المشترك..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <input type="text" id="search-input" oninput="filterSubscribers()" placeholder="🔍 ابحث باسم المشترك أو اسم المستخدم..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
                     </div>
 
                     <div class="overflow-x-auto rounded-xl border border-slate-700/60">
@@ -91,9 +95,10 @@
                             <thead class="bg-slate-900 text-slate-400">
                                 <tr>
                                     <th class="p-3"><input type="checkbox" id="select-all"></th>
-                                    <th class="p-3">المشترك (الاسم / اليوزر)</th>
+                                    <th class="p-3">المشترك / اسم المستخدم</th>
                                     <th class="p-3">حالة الاشتراك</th>
-                                    <th class="p-3">الباقة</th>
+                                    <th class="p-3">الاتصال</th>
+                                    <th class="p-3">نوع الاشتراك / الوسم</th>
                                 </tr>
                             </thead>
                             <tbody id="subscribers-table-body" class="divide-y divide-slate-700/50"></tbody>
@@ -134,7 +139,7 @@
             </section>
         </main>
 
-        <!-- بطاقة تفاصيل المشترك المنبثقة (Profile Card) -->
+        <!-- بطاقة تفاصيل المشترك المنبثقة -->
         <div id="subscriber-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
                 <div class="flex justify-between items-center border-b border-slate-700 pb-3">
@@ -142,13 +147,12 @@
                         <div class="w-8 h-8 rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-sm">👤</div>
                         <div>
                             <h3 id="modal-sub-name" class="text-sm font-bold text-white">تفاصيل المشترك</h3>
-                            <p id="modal-sub-user" class="text-[10px] text-slate-400">@username</p>
+                            <p id="modal-sub-user" class="text-[10px] text-slate-400 font-mono">username</p>
                         </div>
                     </div>
                     <button onclick="closeModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
                 </div>
                 
-                <!-- حاوية بطاقة البيانات المصممة -->
                 <div id="modal-content-card" class="space-y-2.5 text-xs max-h-[60vh] overflow-y-auto pr-1"></div>
 
                 <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg">إغلاق البطاقة</button>
