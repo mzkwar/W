@@ -1,6 +1,6 @@
 let authToken = localStorage.getItem('ftth_token') || '';
+let cachedSubscribers = []; // ذاكرة مؤقتة لسرعة التصفح بدون تأخير
 
-// التحقق التلقائي من الجلسة عند فتح التطبيق
 window.addEventListener('DOMContentLoaded', () => {
     if (authToken) {
         showDashboard();
@@ -26,7 +26,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         
         if (data.access_token) {
             authToken = `Bearer ${data.access_token}`;
-            localStorage.setItem('ftth_token', authToken); // حفظ الجلسة
+            localStorage.setItem('ftth_token', authToken);
             showDashboard();
         } else {
             alert(data.message || "فشل تسجيل الدخول");
@@ -42,13 +42,12 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 function showDashboard() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('dashboard-screen').classList.remove('hidden');
-    loadSummary();
-    loadSubscribers();
+    loadSubscribers(); // سيقوم بجلب وتحديث الإحصائيات فوراً
     loadAgents();
     loadTickets();
 }
 
-// التبديل بين الأقسام
+// التنقل السريع بين الأقسام بدون إعادة تحميل
 function switchTab(tabName, title) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
@@ -61,70 +60,93 @@ function switchTab(tabName, title) {
     document.getElementById(`btn-${tabName}`).classList.add('text-indigo-400', 'font-bold');
 }
 
-async function loadSummary() {
-    try {
-        const res = await fetch('/api/ftth/summary', { headers: { 'Authorization': authToken } });
-        const data = await res.json();
-        document.getElementById('stat-total').innerText = data.totalSubscribersCount || data.activeCount || 0;
-        document.getElementById('stat-active').innerText = data.activeCount || 0;
-        document.getElementById('stat-expired').innerText = data.expiredCount || 0;
-    } catch (e) { console.error(e); }
-}
-
-// جلب المشتركين عبر /api/subscriptions
+// جلب المشتركين وتحديث الإحصائيات بسرعة فائقة
 async function loadSubscribers() {
     const tbody = document.getElementById('subscribers-table-body');
+    
+    // إذا كانت البيانات مخزنة مسبقاً، اعرضها فوراً لسرعة فائقة
+    if (cachedSubscribers.length > 0) {
+        renderSubscribers(cachedSubscribers);
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">جاري جلب البيانات...</td></tr>`;
+
     try {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
         const data = await res.json();
-        const items = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
+        cachedSubscribers = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
         
-        tbody.innerHTML = '';
-        if (items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">لا توجد بيانات مشتركين متاحة</td></tr>`;
-            return;
-        }
-
-        items.forEach(sub => {
-            const subName = sub.fullName || sub.username || sub.name || sub.subscriberName || 'مشترك FTTH';
-            const subId = sub.id || sub.username || 'N/A';
-            const isActive = sub.isActive !== undefined ? sub.isActive : (sub.status === 'Active' || sub.status === 'فعال');
-            const plan = sub.packageName || sub.planName || sub.package || 'باقة الإنترنت';
-
-            tbody.innerHTML += `
-                <tr class="hover:bg-slate-700/30 transition">
-                    <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${subId}"></td>
-                    <td class="p-3 font-bold text-white">${subName} (${subId})</td>
-                    <td class="p-3">
-                        <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
-                            ${isActive ? 'فعال' : 'منتهي'}
-                        </span>
-                    </td>
-                    <td class="p-3 text-slate-400">${plan}</td>
-                </tr>
-            `;
-        });
+        renderSubscribers(cachedSubscribers);
     } catch (err) {
         console.error("خطأ في جلب المشتركين:", err);
         tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
     }
 }
 
-async function loadAgents() {
-    const res = await fetch('/api/admin/sub-agents');
-    const agents = await res.json();
-    const list = document.getElementById('agents-list');
-    const select = document.getElementById('select-agent-assign');
-    
-    document.getElementById('stat-agents').innerText = agents.length;
-    list.innerHTML = agents.map(a => `
-        <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700">
-            <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">@${a.username}</p></div>
-            <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
-        </div>
-    `).join('');
+// دالة لعرض البيانات وتحديث الإحصائيات في الأعلى بدقة
+function renderSubscribers(items) {
+    const tbody = document.getElementById('subscribers-table-body');
+    tbody.innerHTML = '';
 
-    select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>' + agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+    let total = items.length;
+    let active = 0;
+    let expired = 0;
+
+    if (total === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">لا توجد بيانات مشتركين متاحة</td></tr>`;
+        return;
+    }
+
+    items.forEach(sub => {
+        const username = sub.username || sub.id || 'N/A';
+        const fullName = sub.fullName || sub.name || sub.subscriberName || username;
+        const isActive = sub.isActive !== undefined ? sub.isActive : (sub.status === 'Active' || sub.status === 'فعال' || sub.state === 'Active');
+        const plan = sub.packageName || sub.planName || sub.package || 'باقة FTTH';
+
+        if (isActive) active++;
+        else expired++;
+
+        tbody.innerHTML += `
+            <tr class="hover:bg-slate-700/30 transition">
+                <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
+                <td class="p-3">
+                    <div class="font-bold text-white">${fullName}</div>
+                    <div class="text-[10px] text-slate-400">@${username}</div>
+                </td>
+                <td class="p-3">
+                    <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                        ${isActive ? 'فعال' : 'منتهي'}
+                    </span>
+                </td>
+                <td class="p-3 text-slate-400">${plan}</td>
+            </tr>
+        `;
+    });
+
+    // تحديث كروت الإحصائيات العلوية بالأسقام الصحيحة
+    document.getElementById('stat-total').innerText = total;
+    document.getElementById('stat-active').innerText = active;
+    document.getElementById('stat-expired').innerText = expired;
+}
+
+async function loadAgents() {
+    try {
+        const res = await fetch('/api/admin/sub-agents');
+        const agents = await res.json();
+        const list = document.getElementById('agents-list');
+        const select = document.getElementById('select-agent-assign');
+        
+        document.getElementById('stat-agents').innerText = agents.length;
+        list.innerHTML = agents.map(a => `
+            <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700">
+                <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">@${a.username}</p></div>
+                <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
+            </div>
+        `).join('');
+
+        select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>' + agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+    } catch (e) { console.error(e); }
 }
 
 async function loadTickets() {
@@ -157,7 +179,7 @@ document.getElementById('add-agent-form').addEventListener('submit', async (e) =
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            name: document.getElementById('agent-name').value,
+            name: document.getElementById('agent-name-input'] || document.getElementById('agent-name').value,
             username: document.getElementById('agent-username').value,
             password: document.getElementById('agent-password').value
         })
@@ -195,5 +217,6 @@ async function assignSelected() {
 
 function logout() {
     localStorage.removeItem('ftth_token');
+    cachedSubscribers = [];
     location.reload();
 }
