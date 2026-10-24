@@ -1,6 +1,6 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 
-// التحقق الفوري من الجلسة المحفوظة عند فتح الموقع
+// التحقق التلقائي من الجلسة عند فتح التطبيق
 window.addEventListener('DOMContentLoaded', () => {
     if (authToken) {
         showDashboard();
@@ -26,8 +26,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         
         if (data.access_token) {
             authToken = `Bearer ${data.access_token}`;
-            // حفظ التوكن في ذاكرة المتصفح
-            localStorage.setItem('ftth_token', authToken);
+            localStorage.setItem('ftth_token', authToken); // حفظ الجلسة
             showDashboard();
         } else {
             alert(data.message || "فشل تسجيل الدخول");
@@ -49,7 +48,7 @@ function showDashboard() {
     loadTickets();
 }
 
-// التنقل بين الأقسام
+// التبديل بين الأقسام
 function switchTab(tabName, title) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
@@ -72,30 +71,43 @@ async function loadSummary() {
     } catch (e) { console.error(e); }
 }
 
+// جلب المشتركين عبر /api/subscriptions
 async function loadSubscribers() {
     const tbody = document.getElementById('subscribers-table-body');
     try {
-        const res = await fetch('/api/ftth/tickets', { headers: { 'Authorization': authToken } });
+        const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
         const data = await res.json();
-        const items = data.items || [];
+        const items = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
         
         tbody.innerHTML = '';
         if (items.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">لا يوجد مشتركين أو تذاكر حالية</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">لا توجد بيانات مشتركين متاحة</td></tr>`;
             return;
         }
 
-        items.forEach(item => {
+        items.forEach(sub => {
+            const subName = sub.fullName || sub.username || sub.name || sub.subscriberName || 'مشترك FTTH';
+            const subId = sub.id || sub.username || 'N/A';
+            const isActive = sub.isActive !== undefined ? sub.isActive : (sub.status === 'Active' || sub.status === 'فعال');
+            const plan = sub.packageName || sub.planName || sub.package || 'باقة الإنترنت';
+
             tbody.innerHTML += `
-                <tr class="hover:bg-slate-700/30">
-                    <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${item.id}"></td>
-                    <td class="p-3 font-bold text-white">${item.ticketNumber || item.id}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-400">${item.status || 'نشط'}</span></td>
-                    <td class="p-3 text-slate-400">${item.title || 'FTTH Plus'}</td>
+                <tr class="hover:bg-slate-700/30 transition">
+                    <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${subId}"></td>
+                    <td class="p-3 font-bold text-white">${subName} (${subId})</td>
+                    <td class="p-3">
+                        <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                            ${isActive ? 'فعال' : 'منتهي'}
+                        </span>
+                    </td>
+                    <td class="p-3 text-slate-400">${plan}</td>
                 </tr>
             `;
         });
-    } catch (err) { console.error(err); }
+    } catch (err) {
+        console.error("خطأ في جلب المشتركين:", err);
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+    }
 }
 
 async function loadAgents() {
@@ -116,25 +128,27 @@ async function loadAgents() {
 }
 
 async function loadTickets() {
-    const res = await fetch('/api/ftth/tickets', { headers: { 'Authorization': authToken } });
-    const data = await res.json();
-    const list = document.getElementById('tickets-list');
-    const items = data.items || [];
+    try {
+        const res = await fetch('/api/ftth/tickets', { headers: { 'Authorization': authToken } });
+        const data = await res.json();
+        const list = document.getElementById('tickets-list');
+        const items = data.items || [];
 
-    if (items.length === 0) {
-        list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد تذاكر حالية</p>`;
-        return;
-    }
+        if (items.length === 0) {
+            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد تذاكر حالية</p>`;
+            return;
+        }
 
-    list.innerHTML = items.map(t => `
-        <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
-            <div class="flex justify-between items-center mb-1">
-                <span class="text-xs font-bold text-indigo-400">تذكرة #${t.ticketNumber || t.id}</span>
-                <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">${t.status || 'مفتوحة'}</span>
+        list.innerHTML = items.map(t => `
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-indigo-400">تذكرة #${t.ticketNumber || t.id}</span>
+                    <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded">${t.status || 'مفتوحة'}</span>
+                </div>
+                <p class="text-xs text-slate-300">${t.title || 'لا يوجد عنوان'}</p>
             </div>
-            <p class="text-xs text-slate-300">${t.title || 'لا يوجد عنوان'}</p>
-        </div>
-    `).join('');
+        `).join('');
+    } catch (e) { console.error(e); }
 }
 
 document.getElementById('add-agent-form').addEventListener('submit', async (e) => {
@@ -152,7 +166,14 @@ document.getElementById('add-agent-form').addEventListener('submit', async (e) =
         document.getElementById('add-agent-form').reset();
         loadAgents();
         alert("تم إنشاء الوكيل الثانوي بنجاح!");
+    } else {
+        const err = await res.json();
+        alert(err.error || "فشل إضافة الوكيل");
     }
+});
+
+document.getElementById('select-all')?.addEventListener('change', (e) => {
+    document.querySelectorAll('.sub-check').forEach(cb => cb.checked = e.target.checked);
 });
 
 async function assignSelected() {
@@ -160,7 +181,7 @@ async function assignSelected() {
     const selectedBoxes = document.querySelectorAll('.sub-check:checked');
     const subscriberIds = Array.from(selectedBoxes).map(cb => cb.value);
 
-    if (!agentId || subscriberIds.length === 0) return alert("اختر الوكيل وتحدد مشترك واحد على الأقل");
+    if (!agentId || subscriberIds.length === 0) return alert("يرجى اختيار الوكيل وتحديد مشترك واحد على الأقل");
 
     const res = await fetch('/api/admin/assign', {
         method: 'POST',
