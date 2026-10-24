@@ -1,16 +1,18 @@
 let authToken = localStorage.getItem('ftth_token') || '';
-let cachedSubscribers = []; // ذاكرة مؤقتة لسرعة التصفح بدون تأخير
+let cachedSubscribers = [];
 
+// التحقق من الجلسة عند فتح التطبيق
 window.addEventListener('DOMContentLoaded', () => {
     if (authToken) {
         showDashboard();
     }
 });
 
+// تسجيل الدخول
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
-    btn.innerText = 'جاري الاتصال...';
+    btn.innerText = 'جاري الاتصال بـ admin.ftth.iq...';
     btn.disabled = true;
 
     try {
@@ -24,15 +26,16 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         });
         const data = await res.json();
         
-        if (data.access_token) {
+        if (res.ok && data.access_token) {
             authToken = `Bearer ${data.access_token}`;
             localStorage.setItem('ftth_token', authToken);
             showDashboard();
         } else {
-            alert(data.message || "فشل تسجيل الدخول");
+            alert(data.message || data.error || "فشل تسجيل الدخول، تحقق من البيانات.");
         }
     } catch (err) {
-        alert("حدث خطأ في الاتصال بالسيرفر");
+        console.error(err);
+        alert("حدث خطأ في الاتصال بالسيرفر، تأكد أن السيرفر يعمل.");
     } finally {
         btn.innerText = 'دخول النظام';
         btn.disabled = false;
@@ -42,12 +45,28 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 function showDashboard() {
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('dashboard-screen').classList.remove('hidden');
-    loadSubscribers(); // سيقوم بجلب وتحديث الإحصائيات فوراً
+    loadSubscribers();
     loadAgents();
     loadTickets();
 }
 
-// التنقل السريع بين الأقسام بدون إعادة تحميل
+// دالة مخصصة للطلبات مع فحص انتهاء الجلسة (401)
+async function fetchWithAuth(url, options = {}) {
+    options.headers = options.headers || {};
+    options.headers['Authorization'] = authToken;
+    
+    const res = await fetch(url, options);
+    
+    if (res.status === 401) {
+        // انتهت صلاحية التوكن أو تم رفضه
+        alert("انتهت صلاحية الجلسة أو بيانات الدخول غير صالحة. يرجى تسجيل الدخول مرة أخرى.");
+        logout();
+        throw new Error("Unauthorized");
+    }
+    return res;
+}
+
+// التنقل بين الأقسام
 function switchTab(tabName, title) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
@@ -60,20 +79,19 @@ function switchTab(tabName, title) {
     document.getElementById(`btn-${tabName}`).classList.add('text-indigo-400', 'font-bold');
 }
 
-// جلب المشتركين وتحديث الإحصائيات بسرعة فائقة
+// جلب المشتركين
 async function loadSubscribers() {
     const tbody = document.getElementById('subscribers-table-body');
     
-    // إذا كانت البيانات مخزنة مسبقاً، اعرضها فوراً لسرعة فائقة
     if (cachedSubscribers.length > 0) {
         renderSubscribers(cachedSubscribers);
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">جاري جلب البيانات...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">جاري جلب المشتركين...</td></tr>`;
 
     try {
-        const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
+        const res = await fetchWithAuth('/api/ftth/subscriptions');
         const data = await res.json();
         cachedSubscribers = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
         
@@ -84,7 +102,6 @@ async function loadSubscribers() {
     }
 }
 
-// دالة لعرض البيانات وتحديث الإحصائيات في الأعلى بدقة
 function renderSubscribers(items) {
     const tbody = document.getElementById('subscribers-table-body');
     tbody.innerHTML = '';
@@ -124,7 +141,6 @@ function renderSubscribers(items) {
         `;
     });
 
-    // تحديث كروت الإحصائيات العلوية بالأسقام الصحيحة
     document.getElementById('stat-total').innerText = total;
     document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-expired').innerText = expired;
@@ -151,7 +167,7 @@ async function loadAgents() {
 
 async function loadTickets() {
     try {
-        const res = await fetch('/api/ftth/tickets', { headers: { 'Authorization': authToken } });
+        const res = await fetchWithAuth('/api/ftth/tickets');
         const data = await res.json();
         const list = document.getElementById('tickets-list');
         const items = data.items || [];
@@ -179,7 +195,7 @@ document.getElementById('add-agent-form').addEventListener('submit', async (e) =
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            name: document.getElementById('agent-name-input'] || document.getElementById('agent-name').value,
+            name: document.getElementById('agent-name').value,
             username: document.getElementById('agent-username').value,
             password: document.getElementById('agent-password').value
         })
