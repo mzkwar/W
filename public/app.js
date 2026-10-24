@@ -11,7 +11,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// عملية تسجيل الدخول والجلب الفوري لحظياً
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
@@ -75,9 +74,7 @@ function cleanUsername(userStr) {
     return raw.startsWith('@') ? raw.substring(1) : raw;
 }
 
-// دالة جلب نوع الاشتراك أو الوسم بالاعتماد على قيمة SELF أو الحقول المتاحة
 function getSubscriptionType(sub) {
-    // التحقق من حقول الخدمات أو أنواع المبيعات أو الوسوم المرتبطة بالاشتراك
     if (sub.salesType) {
         const st = extractValue(sub.salesType);
         if (st && st !== 'SELF') return st;
@@ -90,10 +87,8 @@ function getSubscriptionType(sub) {
             }
         }
     }
-    // إذا كان يحتوي على قيمة SELF أو وسوم أخرى
     const pkg = extractValue(sub.package) || extractValue(sub.packageName);
     if (pkg) return pkg;
-    
     return extractValue(sub.salesType) || 'SELF';
 }
 
@@ -105,19 +100,41 @@ async function loadSubscribersFast() {
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">جاري جلب جميع المشتركين...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">جاري جلب المشتركين وحالة الاتصال...</td></tr>`;
 
     try {
-        const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
-        if (res.status === 401) { logout(); return; }
-        const data = await res.json();
+        const [subRes, onlineRes] = await Promise.all([
+            fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } }),
+            fetch('/api/ftth/sessions?filterBy=Online', { headers: { 'Authorization': authToken } })
+        ]);
+
+        if (subRes.status === 401 || onlineRes.status === 401) { logout(); return; }
+
+        const subData = await subRes.json();
+        const onlineData = await onlineRes.json();
+
+        cachedSubscribers = Array.isArray(subData) ? subData : (subData.items || subData.subscribers || subData.data || []);
         
-        cachedSubscribers = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
+        const onlineItems = Array.isArray(onlineData) ? onlineData : (onlineData.items || onlineData.sessions || onlineData.data || []);
+        const onlineUsernames = new Set();
         
+        onlineItems.forEach(s => {
+            let u = s.username || s.subscriberUsername || s.id;
+            if (!u && s.subscriber) u = s.subscriber.id || s.subscriber.displayValue;
+            if (u) onlineUsernames.add(cleanUsername(u).toLowerCase());
+        });
+
+        cachedSubscribers = cachedSubscribers.map(sub => {
+            const u = cleanUsername(sub.username || sub.id || (sub.subscriber && sub.subscriber.id));
+            const isOnline = onlineUsernames.has(u.toLowerCase());
+            return { ...sub, _isOnline: isOnline };
+        });
+
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين أو الجلسات</td></tr>`;
     }
 }
 
@@ -131,12 +148,11 @@ function updateGlobalStats(items) {
     items.forEach(sub => {
         const statusVal = extractValue(sub.status);
         const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
-        const isOnline = sub.isOnline || sub.online || sub.connectionStatus === 'Online' || sub.isConnected;
 
         if (isActive) active++;
         else expired++;
 
-        if (isOnline) online++;
+        if (sub._isOnline) online++;
         else offline++;
     });
 
@@ -152,7 +168,7 @@ function renderTableRows(items) {
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">لا توجد نتائج متطابقة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">لا توجد نتائج مطابقة</td></tr>`;
         return;
     }
 
@@ -161,9 +177,7 @@ function renderTableRows(items) {
         const username = cleanUsername(sub.username) || cleanUsername(sub.id) || 'N/A';
         const statusVal = extractValue(sub.status);
         const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
-        const isOnline = sub.isOnline || sub.online || sub.connectionStatus === 'Online' || sub.isConnected;
-        
-        // جلب نوع الاشتراك بالاعتماد على القيم والوسوم
+        const isOnline = sub._isOnline;
         const planType = getSubscriptionType(sub);
 
         tbody.innerHTML += `
@@ -206,7 +220,6 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// فتح البطاقة بالاعتماد على اليوزر المحدد ودون أي تكرار إنجليزي في التسميات
 function openSubscriberCardByUsername(targetUsername) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -220,7 +233,6 @@ function openSubscriberCardByUsername(targetUsername) {
     const container = document.getElementById('modal-content-card');
     container.innerHTML = '';
 
-    // أسماء التسميات بالعربي فقط ودون تكرار مفاتيح إنجليزية
     const keyLabels = {
         'customer': 'اسم المشترك',
         'username': 'اسم المستخدم',
@@ -231,8 +243,7 @@ function openSubscriberCardByUsername(targetUsername) {
         'expirationDate': 'تاريخ الانتهاء',
         'package': 'الباقة',
         'salesType': 'نوع الاشتراك',
-        'autoRenew': 'التجديد التلقائي',
-        'isOnline': 'حالة الاتصال'
+        'autoRenew': 'التجديد التلقائي'
     };
 
     for (const [key, label] of Object.entries(keyLabels)) {
@@ -245,8 +256,6 @@ function openSubscriberCardByUsername(targetUsername) {
                 val = sub[key] ? 'مفعل' : 'غير مفعل';
             } else if (key === 'username') {
                 val = cleanUsername(val);
-            } else if (key === 'isOnline') {
-                val = sub[key] ? 'متصل' : 'غير متصل';
             }
 
             container.innerHTML += `
@@ -257,6 +266,14 @@ function openSubscriberCardByUsername(targetUsername) {
             `;
         }
     }
+
+    const onlineStatusText = sub._isOnline ? 'متصل' : 'غير متصل';
+    container.innerHTML += `
+        <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700/60">
+            <span class="text-slate-400 font-medium">حالة الاتصال</span>
+            <span class="text-white font-semibold text-left">${onlineStatusText}</span>
+        </div>
+    `;
 
     document.getElementById('subscriber-modal').classList.remove('hidden');
 }
