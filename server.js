@@ -83,22 +83,6 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
     }
 });
 
-app.get('/api/ftth/sessions', async (req, res) => {
-    const token = req.headers.authorization;
-    const filterBy = req.query.filterBy || 'Online';
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
-
-    try {
-        const response = await axios.get(`https://admin.ftth.iq/sessions?filterBy=${filterBy}`, {
-            headers: { 'Authorization': token }
-        });
-        res.json(response.data);
-    } catch (error) {
-        console.error("خطأ جلب الجلسات:", error.response?.data || error.message);
-        res.status(500).json({ error: "تعذر جلب بيانات الجلسات من المنظومة الرئيسية" });
-    }
-});
-
 app.get('/api/ftth/tickets', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
