@@ -17,7 +17,6 @@ const db = new sqlite3.Database('./database.db', (err) => {
 
 // تهيئة الجداول
 db.serialize(() => {
-    // جدول الوكلاء الثانويين
     db.run(`CREATE TABLE IF NOT EXISTS sub_agents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
@@ -25,7 +24,6 @@ db.serialize(() => {
         name TEXT
     )`);
 
-    // جدول تخصيص المشتركين
     db.run(`CREATE TABLE IF NOT EXISTS assigned_subscribers (
         subscriber_id TEXT PRIMARY KEY,
         sub_agent_id INTEGER,
@@ -33,18 +31,19 @@ db.serialize(() => {
     )`);
 });
 
-// 1. تسجيل الدخول إلى admin.ftth.iq والحصول على Token (محدث للتعامل مع Keycloak SSO)
+// 1. تسجيل الدخول إلى admin.ftth.iq (محدث بصيغة URLSearchParams ليتوافق مع Keycloak)
 app.post('/api/ftth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        const response = await axios.post('https://admin.ftth.iq/api/auth/Contractor/token', {
-            grant_type: 'password',
-            client_id: 'earthlink-portals',
-            username: username,
-            password: password
-        }, {
+        const params = new URLSearchParams();
+        params.append('grant_type', 'password');
+        params.append('client_id', 'earthlink-portals');
+        params.append('username', username);
+        params.append('password', password);
+
+        const response = await axios.post('https://admin.ftth.iq/api/auth/Contractor/token', params, {
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'Accept': 'application/json'
             }
         });
