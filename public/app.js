@@ -11,7 +11,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// تسجيل الدخول والجلب المباشر
+// تسجيل الدخول والجلب الفوري
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
@@ -93,7 +93,7 @@ function getSubscriptionType(sub) {
     return extractValue(sub.salesType) || 'SELF';
 }
 
-// جلب المشتركين والجلسات
+// جلب المشتركين والتحقق من المتصلين بناءً على وجود ipAddress أو macAddress
 async function loadSubscribersFast() {
     const tbody = document.getElementById('subscribers-table-body');
 
@@ -121,16 +121,19 @@ async function loadSubscribersFast() {
         const onlineUsernames = new Set();
         
         onlineItems.forEach(s => {
-            const possibleUser = s.username || s.userName || s.subscriberUsername || s.user || s.id || 
-                                (s.subscriber && (s.subscriber.id || s.subscriber.displayValue || s.subscriber.username));
-            
-            if (possibleUser) {
-                const cleaned = cleanUsername(possibleUser).trim().toLowerCase();
-                if (cleaned) onlineUsernames.add(cleaned);
+            // شرط الاتصال: في حال وجود ipAddress أو macAddress في الجلسة النشطة
+            if (s.ipAddress || s.macAddress) {
+                let possibleUser = s.username || s.userName || s.subscriberUsername || s.user || s.id || 
+                                    (s.subscriber && (s.subscriber.id || s.subscriber.displayValue || s.subscriber.username));
+                
+                if (possibleUser) {
+                    const cleaned = cleanUsername(possibleUser).trim().toLowerCase();
+                    if (cleaned) onlineUsernames.add(cleaned);
+                }
             }
         });
 
-        console.log("قائمة اليوزرات المتصلة من API الجلسات:", Array.from(onlineUsernames));
+        console.log("المشتركين المتصلين (الذين لديهم IP أو MAC):", onlineUsernames.size, Array.from(onlineUsernames));
 
         cachedSubscribers = cachedSubscribers.map(sub => {
             const u1 = cleanUsername(sub.username).trim().toLowerCase();
@@ -139,8 +142,7 @@ async function loadSubscribersFast() {
 
             const isOnline = (u1 && onlineUsernames.has(u1)) || 
                              (u2 && onlineUsernames.has(u2)) || 
-                             (u3 && onlineUsernames.has(u3)) || 
-                             Boolean(sub.isOnline || sub.online);
+                             (u3 && onlineUsernames.has(u3));
 
             return { ...sub, _isOnline: isOnline };
         });
@@ -235,7 +237,6 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// عرض جميع البيانات والحقول الخام للـ المشترك بدون استثناء
 function openSubscriberCardByUsername(targetUsername) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -249,7 +250,6 @@ function openSubscriberCardByUsername(targetUsername) {
     const container = document.getElementById('modal-content-card');
     container.innerHTML = '';
 
-    // قاموس التسميات العربية مع إمكانية عرض أي حقل آخر
     const keyLabels = {
         'customer': 'اسم المشترك',
         'username': 'اسم المستخدم',
@@ -260,11 +260,9 @@ function openSubscriberCardByUsername(targetUsername) {
         'expirationDate': 'تاريخ الانتهاء',
         'package': 'الباقة',
         'salesType': 'نوع الاشتراك',
-        'autoRenew': 'التجديد التلقائي',
-        '_isOnline': 'حالة الاتصال (مفحوصة)'
+        'autoRenew': 'التجديد التلقائي'
     };
 
-    // عرض كل مفاتيح وقيم الكائن بالكامل
     for (const [key, value] of Object.entries(sub)) {
         const labelName = keyLabels[key] || key;
         let displayVal = extractValue(value);
@@ -280,6 +278,14 @@ function openSubscriberCardByUsername(targetUsername) {
             </div>
         `;
     }
+
+    const onlineStatusText = sub._isOnline ? 'متصل' : 'غير متصل';
+    container.innerHTML += `
+        <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700/60">
+            <span class="text-slate-400 font-medium">حالة الاتصال</span>
+            <span class="text-white font-semibold text-left">${onlineStatusText}</span>
+        </div>
+    `;
 
     document.getElementById('subscriber-modal').classList.remove('hidden');
 }
