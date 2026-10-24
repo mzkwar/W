@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم الرئيسية | FTTH Agent Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800">
+
+    <!-- شاشة تسجيل الدخول -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+            <h2 class="text-2xl font-bold text-center text-indigo-600 mb-6">تسجيل الدخول - admin.ftth.iq</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">البريد الإلكتروني / اسم المستخدم</label>
+                    <input type="email" id="ftth-email" class="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">كلمة المرور</label>
+                    <input type="password" id="ftth-password" class="w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-indigo-500" required>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition">دخول النظام</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- لوحة تحكم المدير -->
+    <div id="dashboard-screen" class="hidden min-h-screen p-6">
+        <header class="flex justify-between items-center mb-8 bg-white p-4 rounded-xl shadow-sm">
+            <h1 class="text-xl font-bold text-slate-700">لوحة إدارة المشتركين والوكلاء</h1>
+            <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600">تسجيل الخروج</button>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- إدارة الوكلاء الثانويين -->
+            <div class="bg-white p-6 rounded-xl shadow-sm space-y-4">
+                <h2 class="text-lg font-bold border-b pb-2">إضافة وكيل ثانوي</h2>
+                <form id="add-agent-form" class="space-y-3">
+                    <input type="text" id="agent-name" placeholder="الاسم الكامل" class="w-full border p-2 rounded-lg" required>
+                    <input type="text" id="agent-username" placeholder="اسم المستخدم" class="w-full border p-2 rounded-lg" required>
+                    <input type="password" id="agent-password" placeholder="كلمة المرور" class="w-full border p-2 rounded-lg" required>
+                    <button type="submit" class="w-full bg-emerald-600 text-white py-2 rounded-lg font-semibold hover:bg-emerald-700">إنشاء الحساب</button>
+                </form>
+
+                <h3 class="text-md font-bold mt-6 mb-2">قائمة الوكلاء</h3>
+                <ul id="agents-list" class="divide-y text-sm"></ul>
+            </div>
+
+            <!-- جدول المشتركين والتوزيع -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold">قائمة المشتركين (admin.ftth.iq)</h2>
+                    <div class="flex items-center gap-2">
+                        <select id="select-agent-assign" class="border p-2 rounded-lg text-sm">
+                            <option value="">اختر وكيلاً لتحويل المشتركين إليه</option>
+                        </select>
+                        <button onclick="assignSelected()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700">تحويل المحدد</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b text-slate-500 text-xs">
+                                <th class="p-3"><input type="checkbox" id="select-all"></th>
+                                <th class="p-3">معرف المشترك</th>
+                                <th class="p-3">حالة الاشتراك</th>
+                                <th class="p-3">التفاصيل</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subscribers-table-body" class="divide-y text-sm">
+                            <!-- يتم تحميل البيانات هنا -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
