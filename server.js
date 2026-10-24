@@ -33,16 +33,24 @@ db.serialize(() => {
     )`);
 });
 
-// 1. تسجيل الدخول إلى admin.ftth.iq والحصول على Token
+// 1. تسجيل الدخول إلى admin.ftth.iq والحصول على Token (محدث للتعامل مع Keycloak SSO)
 app.post('/api/ftth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const response = await axios.post('https://admin.ftth.iq/api/auth/Contractor/token', {
-            username,
-            password
+            grant_type: 'password',
+            client_id: 'earthlink-portals',
+            username: username,
+            password: password
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
         });
         res.json(response.data);
     } catch (error) {
+        console.error("خطأ تسجيل الدخول:", error.response?.data || error.message);
         res.status(401).json({ message: "فشل تسجيل الدخول في admin.ftth.iq", error: error.message });
     }
 });
@@ -53,7 +61,6 @@ app.get('/api/ftth/subscribers', async (req, res) => {
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        // الاتصال المباشر بالموقع الأساسي admin.ftth.iq
         const response = await axios.get('https://admin.ftth.iq/api/partners/dashboard/summary?hierarchyLevel=0', {
             headers: { 'Authorization': token }
         });
