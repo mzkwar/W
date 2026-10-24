@@ -11,6 +11,28 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// نظام التوست الداخلي الأنيق بدلاً من alert
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) {
+        alert(message);
+        return;
+    }
+    const toast = document.createElement('div');
+    toast.className = `pointer-events-auto px-4 py-3 rounded-xl shadow-2xl text-xs font-bold text-white transition-all duration-300 transform translate-y-[-20px] opacity-0 ${type === 'error' ? 'bg-rose-600 border border-rose-500' : 'bg-indigo-600 border border-indigo-500'}`;
+    toast.innerText = message;
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.remove('translate-y-[-20px]', 'opacity-0');
+    }, 10);
+
+    setTimeout(() => {
+        toast.classList.add('translate-y-[-20px]', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
@@ -33,16 +55,17 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             localStorage.setItem('ftth_token', authToken);
 
             await loadSubscribersFast();
+            loadAgents();
+            loadTickets();
 
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('dashboard-screen').classList.remove('hidden');
-            loadAgents();
-            loadTickets();
+            showToast("تم تسجيل الدخول بنجاح");
         } else {
-            alert(data.message || data.error || "فشل تسجيل الدخول");
+            showToast(data.message || data.error || "فشل تسجيل الدخول", "error");
         }
     } catch (err) {
-        alert("حدث خطأ في الاتصال بالسيرفر");
+        showToast("حدث خطأ في الاتصال بالسيرفر", "error");
     } finally {
         btn.innerText = 'دخول النظام';
         btn.disabled = false;
@@ -74,31 +97,23 @@ function cleanUsername(userStr) {
     return raw.startsWith('@') ? raw.substring(1) : raw;
 }
 
-// استخراج نوع الاشتراك بدقة، وإذا كان SELF يتم استخدام القيمة المقابلة له
+// استخراج نوع الاشتراك بالاعتماد على حقل self أولاً
 function getSubscriptionType(sub) {
     let typeVal = '';
     
-    if (sub.salesType) {
+    if (sub.self) {
+        typeVal = extractValue(sub.self);
+    }
+    if ((!typeVal || typeVal.toUpperCase() === 'SELF') && sub.salesType) {
         typeVal = extractValue(sub.salesType);
     }
-    
     if ((!typeVal || typeVal.toUpperCase() === 'SELF') && sub.package) {
         typeVal = extractValue(sub.package);
-    }
-    
-    if ((!typeVal || typeVal.toUpperCase() === 'SELF') && sub.services && Array.isArray(sub.services)) {
-        for (let s of sub.services) {
-            if (s.productType) {
-                const pt = extractValue(s.productType);
-                if (pt) { typeVal = pt; break; }
-            }
-        }
     }
     
     return typeVal || 'SELF';
 }
 
-// جلب المشتركين والاعتماد على hasActiveSession لحالة الاتصال
 async function loadSubscribersFast() {
     const tbody = document.getElementById('subscribers-table-body');
 
@@ -107,7 +122,7 @@ async function loadSubscribersFast() {
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">جاري جلب المشتركين...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 animate-pulse">جاري جلب المشتركين...</td></tr>`;
 
     try {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
@@ -136,7 +151,6 @@ function updateGlobalStats(items) {
 
         if (isActive) active++;
 
-        // الاعتماد على حقل hasActiveSession الحقيقي من الكائن
         const isOnline = Boolean(sub.hasActiveSession);
         if (isOnline) online++;
         else offline++;
@@ -146,6 +160,11 @@ function updateGlobalStats(items) {
     document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-online').innerText = online;
     document.getElementById('stat-offline').innerText = offline;
+
+    // إزالة تأثير النبض (Pulse) عند توفر الأرقام
+    ['stat-total', 'stat-active', 'stat-online', 'stat-offline'].forEach(id => {
+        document.getElementById(id).classList.remove('animate-pulse');
+    });
 }
 
 function renderTableRows(items) {
@@ -205,7 +224,6 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// عرض البطاقة واستبعاد الحقول المطلوبة
 function openSubscriberCardByUsername(targetUsername) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -219,7 +237,6 @@ function openSubscriberCardByUsername(targetUsername) {
     const container = document.getElementById('modal-content-card');
     container.innerHTML = '';
 
-    // الحقول الواجب استبعادها تماماً بناءً على طلبك
     const excludedFields = [
         'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
         'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
@@ -235,13 +252,14 @@ function openSubscriberCardByUsername(targetUsername) {
         'expires': 'تاريخ الانتهاء',
         'expirationDate': 'تاريخ الانتهاء',
         'package': 'الباقة',
+        'self': 'نوع الإشتراك',
         'salesType': 'نوع الإشتراك',
         'autoRenew': 'التجديد التلقائي',
         'hasActiveSession': 'حالة الاتصال'
     };
 
     for (const [key, value] of Object.entries(sub)) {
-        if (excludedFields.includes(key)) continue; // تخطي الحقول المحذوفة
+        if (excludedFields.includes(key)) continue;
 
         const labelName = keyLabels[key] || key;
         let displayVal = extractValue(value);
@@ -254,7 +272,7 @@ function openSubscriberCardByUsername(targetUsername) {
             displayVal = value ? 'متصل' : 'غير متصل';
         } else if (key === 'username') {
             displayVal = cleanUsername(displayVal);
-        } else if (key === 'salesType' || key === 'package') {
+        } else if (key === 'salesType' || key === 'package' || key === 'self') {
             displayVal = getSubscriptionType(sub);
         }
 
@@ -280,7 +298,14 @@ async function loadAgents() {
         const list = document.getElementById('agents-list');
         const select = document.getElementById('select-agent-assign');
         
-        document.getElementById('stat-agents').innerText = agents.length;
+        document.getElementById('stat-agents').innerText = agents.length || 0;
+        
+        if (!Array.isArray(agents) || agents.length === 0) {
+            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد وكلاء حالياً</p>`;
+            select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>';
+            return;
+        }
+
         list.innerHTML = agents.map(a => `
             <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700">
                 <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">${a.username}</p></div>
@@ -289,7 +314,9 @@ async function loadAgents() {
         `).join('');
 
         select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>' + agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error("خطأ جلب الوكلاء:", e); 
+    }
 }
 
 async function loadTickets() {
@@ -330,10 +357,10 @@ document.getElementById('add-agent-form').addEventListener('submit', async (e) =
     if (res.ok) {
         document.getElementById('add-agent-form').reset();
         loadAgents();
-        alert("تم إنشاء الوكيل الثانوي بنجاح!");
+        showToast("تم إنشاء الوكيل الثانوي بنجاح!");
     } else {
         const err = await res.json();
-        alert(err.error || "فشل إضافة الوكيل");
+        showToast(err.error || "فشل إضافة الوكيل", "error");
     }
 });
 
@@ -346,7 +373,10 @@ async function assignSelected() {
     const selectedBoxes = document.querySelectorAll('.sub-check:checked');
     const subscriberIds = Array.from(selectedBoxes).map(cb => cb.value);
 
-    if (!agentId || subscriberIds.length === 0) return alert("يرجى اختيار الوكيل وتحديد مشترك واحد على الأقل");
+    if (!agentId || subscriberIds.length === 0) {
+        showToast("يرجى اختيار الوكيل وتحديد مشترك واحد على الأقل", "error");
+        return;
+    }
 
     const res = await fetch('/api/admin/assign', {
         method: 'POST',
@@ -354,7 +384,7 @@ async function assignSelected() {
         body: JSON.stringify({ subscriberIds, subAgentId: agentId })
     });
     const data = await res.json();
-    alert(data.message);
+    showToast(data.message);
     loadAgents();
 }
 
