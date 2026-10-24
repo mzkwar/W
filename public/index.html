@@ -17,7 +17,7 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
 
-    <!-- حاوية الإشعارات الداخلية الأنيقة (Toast Container) -->
+    <!-- حاوية الإشعارات الداخلية (Toast Container) -->
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 space-y-2 pointer-events-none"></div>
 
     <!-- شاشة تسجيل الدخول -->
@@ -49,7 +49,7 @@
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات الكلية مع حركات تحميل (Pulse) -->
+        <!-- كروت الإحصائيات مع تأثير التحميل -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
@@ -84,7 +84,6 @@
                         </div>
                     </div>
                     
-                    <!-- حقل البحث السريع -->
                     <div>
                         <input type="text" id="search-input" oninput="filterSubscribers()" placeholder="🔍 ابحث باسم المشترك أو اسم المستخدم..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
                     </div>
@@ -152,7 +151,9 @@
                     <button onclick="closeModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
                 </div>
                 
-                <div id="modal-content-card" class="space-y-2.5 text-xs max-h-[60vh] overflow-y-auto pr-1"></div>
+                <div id="modal-content-card" class="space-y-2.5 text-xs max-h-[60vh] overflow-y-auto pr-1">
+                    <p class="text-center text-slate-400 py-4">جاري تحميل تفاصيل الجهاز وبيانات الحساب...</p>
+                </div>
 
                 <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg">إغلاق البطاقة</button>
             </div>
