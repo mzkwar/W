@@ -11,11 +11,11 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// تسجيل الدخول
+// عملية تسجيل الدخول والجلب الفوري لحظياً
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
-    btn.innerText = 'جاري الاتصال...';
+    btn.innerText = 'جاري الاتصال وجلب البيانات...';
     btn.disabled = true;
 
     try {
@@ -32,9 +32,11 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (res.ok && data.access_token) {
             authToken = `Bearer ${data.access_token}`;
             localStorage.setItem('ftth_token', authToken);
+
+            await loadSubscribersFast();
+
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('dashboard-screen').classList.remove('hidden');
-            loadSubscribersFast();
             loadAgents();
             loadTickets();
         } else {
@@ -60,7 +62,6 @@ function switchTab(tabName, title) {
     document.getElementById(`btn-${tabName}`).classList.add('text-indigo-400', 'font-bold');
 }
 
-// دالة استخراج النص من أي حقل (سواء كان String أو Object مع displayValue/id)
 function extractValue(field) {
     if (!field) return '';
     if (typeof field === 'object') {
@@ -69,7 +70,33 @@ function extractValue(field) {
     return String(field);
 }
 
-// جلب المشتركين والاشتراكات المنتهية والفعالة
+function cleanUsername(userStr) {
+    const raw = extractValue(userStr);
+    return raw.startsWith('@') ? raw.substring(1) : raw;
+}
+
+// دالة جلب نوع الاشتراك أو الوسم بالاعتماد على قيمة SELF أو الحقول المتاحة
+function getSubscriptionType(sub) {
+    // التحقق من حقول الخدمات أو أنواع المبيعات أو الوسوم المرتبطة بالاشتراك
+    if (sub.salesType) {
+        const st = extractValue(sub.salesType);
+        if (st && st !== 'SELF') return st;
+    }
+    if (sub.services && Array.isArray(sub.services)) {
+        for (let s of sub.services) {
+            if (s.productType) {
+                const pt = extractValue(s.productType);
+                if (pt) return pt;
+            }
+        }
+    }
+    // إذا كان يحتوي على قيمة SELF أو وسوم أخرى
+    const pkg = extractValue(sub.package) || extractValue(sub.packageName);
+    if (pkg) return pkg;
+    
+    return extractValue(sub.salesType) || 'SELF';
+}
+
 async function loadSubscribersFast() {
     const tbody = document.getElementById('subscribers-table-body');
 
@@ -78,7 +105,7 @@ async function loadSubscribersFast() {
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">جاري جلب جميع المشتركين...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">جاري جلب جميع المشتركين...</td></tr>`;
 
     try {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
@@ -90,65 +117,78 @@ async function loadSubscribersFast() {
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
     }
 }
 
-// تحديث الإحصائيات العلوية
 function updateGlobalStats(items) {
     let total = items.length;
     let active = 0;
     let expired = 0;
+    let online = 0;
+    let offline = 0;
 
     items.forEach(sub => {
         const statusVal = extractValue(sub.status);
         const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
+        const isOnline = sub.isOnline || sub.online || sub.connectionStatus === 'Online' || sub.isConnected;
+
         if (isActive) active++;
         else expired++;
+
+        if (isOnline) online++;
+        else offline++;
     });
 
     document.getElementById('stat-total').innerText = total;
     document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-expired').innerText = expired;
+    document.getElementById('stat-online').innerText = online;
+    document.getElementById('stat-offline').innerText = offline;
 }
 
-// عرض المشتركين في الجدول باستخراج حقل customer مباشرة
 function renderTableRows(items) {
     const tbody = document.getElementById('subscribers-table-body');
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">لا توجد نتائج متطابقة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">لا توجد نتائج متطابقة</td></tr>`;
         return;
     }
 
-    items.forEach((sub, index) => {
-        // استخراج اسم المشترك الحقيقي من customer
+    items.forEach(sub => {
         const realCustomerName = extractValue(sub.customer) || extractValue(sub.subscriber) || 'غير محدد';
-        const username = extractValue(sub.username) || extractValue(sub.id) || 'N/A';
+        const username = cleanUsername(sub.username) || cleanUsername(sub.id) || 'N/A';
         const statusVal = extractValue(sub.status);
         const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
-        const plan = extractValue(sub.package) || extractValue(sub.packageName) || 'باقة الإنترنت';
+        const isOnline = sub.isOnline || sub.online || sub.connectionStatus === 'Online' || sub.isConnected;
+        
+        // جلب نوع الاشتراك بالاعتماد على القيم والوسوم
+        const planType = getSubscriptionType(sub);
 
         tbody.innerHTML += `
             <tr class="hover:bg-slate-700/30 transition">
                 <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
                 <td class="p-3">
-                    <a href="javascript:void(0)" onclick="openSubscriberCard(${index})" class="font-bold text-indigo-400 hover:underline block">${realCustomerName}</a>
-                    <span class="text-[10px] text-slate-400 font-mono">@${username}</span>
+                    <a href="javascript:void(0)" onclick="openSubscriberCardByUsername('${username}')" class="font-bold text-indigo-400 hover:underline block">${realCustomerName}</a>
+                    <span class="text-[10px] text-slate-400 font-mono">${username}</span>
                 </td>
                 <td class="p-3">
                     <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
                         ${isActive ? 'فعال' : 'منتهي'}
                     </span>
                 </td>
-                <td class="p-3 text-slate-300">${plan}</td>
+                <td class="p-3">
+                    <span class="px-2 py-0.5 rounded text-[10px] ${isOnline ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-slate-400'}">
+                        ${isOnline ? 'متصل' : 'غير متصل'}
+                    </span>
+                </td>
+                <td class="p-3 text-slate-300 font-semibold">${planType}</td>
             </tr>
         `;
     });
 }
 
-// البحث السريع عبر الاسم الحقيقي واليوزر
 function filterSubscribers() {
     const query = document.getElementById('search-input').value.trim().toLowerCase();
     
@@ -159,28 +199,28 @@ function filterSubscribers() {
 
     const filtered = cachedSubscribers.filter(sub => {
         const realCustomerName = extractValue(sub.customer).toLowerCase();
-        const username = extractValue(sub.username).toLowerCase();
+        const username = cleanUsername(sub.username || sub.id).toLowerCase();
         return realCustomerName.includes(query) || username.includes(query);
     });
 
     renderTableRows(filtered);
 }
 
-// فتح بطاقة المشترك والتفاصيل المترجمة
-function openSubscriberCard(index) {
-    const sub = cachedSubscribers[index];
+// فتح البطاقة بالاعتماد على اليوزر المحدد ودون أي تكرار إنجليزي في التسميات
+function openSubscriberCardByUsername(targetUsername) {
+    const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
 
     const realCustomerName = extractValue(sub.customer) || 'غير محدد';
-    const username = extractValue(sub.username) || extractValue(sub.id) || 'N/A';
+    const username = cleanUsername(sub.username) || cleanUsername(sub.id) || 'N/A';
 
     document.getElementById('modal-sub-name').innerText = realCustomerName;
-    document.getElementById('modal-sub-user').innerText = `@${username}`;
+    document.getElementById('modal-sub-user').innerText = username;
 
     const container = document.getElementById('modal-content-card');
     container.innerHTML = '';
 
-    // قائمة الحقول المراد ترتيبها وعرضها بوضوح
+    // أسماء التسميات بالعربي فقط ودون تكرار مفاتيح إنجليزية
     const keyLabels = {
         'customer': 'اسم المشترك',
         'username': 'اسم المستخدم',
@@ -189,44 +229,32 @@ function openSubscriberCard(index) {
         'status': 'حالة الاشتراك',
         'expires': 'تاريخ الانتهاء',
         'expirationDate': 'تاريخ الانتهاء',
-        'package': 'الباقة الحالية',
-        'salesType': 'نوع المبيعات',
-        'autoRenew': 'التجديد التلقائي'
+        'package': 'الباقة',
+        'salesType': 'نوع الاشتراك',
+        'autoRenew': 'التجديد التلقائي',
+        'isOnline': 'حالة الاتصال'
     };
 
-    // عرض الحقول المعرفة أولاً
     for (const [key, label] of Object.entries(keyLabels)) {
         if (sub[key] !== undefined && sub[key] !== null) {
             let val = extractValue(sub[key]);
             
-            // تحسين معالجة الحالات والتحويلات النصية
             if (key === 'status') {
-                val = (val.toLowerCase() === 'active' || val === 'فعال') ? 'فعال (Active)' : 'منتهي الصلاحية';
+                val = (val.toLowerCase() === 'active' || val === 'فعال') ? 'فعال' : 'منتهي الصلاحية';
             } else if (key === 'autoRenew') {
                 val = sub[key] ? 'مفعل' : 'غير مفعل';
+            } else if (key === 'username') {
+                val = cleanUsername(val);
+            } else if (key === 'isOnline') {
+                val = sub[key] ? 'متصل' : 'غير متصل';
             }
 
             container.innerHTML += `
                 <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700/60">
-                    <span class="text-slate-400 font-medium">${label} (${key})</span>
+                    <span class="text-slate-400 font-medium">${label}</span>
                     <span class="text-white font-semibold text-left dir-ltr">${val}</span>
                 </div>
             `;
-        }
-    }
-
-    // عرض أي حقول إضافية إن وجدت
-    for (const [key, value] of Object.entries(sub)) {
-        if (!keyLabels[key] && value !== null && value !== undefined) {
-            const val = extractValue(value);
-            if (typeof value !== 'object' || val !== '') {
-                container.innerHTML += `
-                    <div class="flex justify-between items-center p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <span class="text-slate-500 font-medium">${key}</span>
-                        <span class="text-slate-300 font-semibold text-left dir-ltr">${val}</span>
-                    </div>
-                `;
-            }
         }
     }
 
@@ -247,7 +275,7 @@ async function loadAgents() {
         document.getElementById('stat-agents').innerText = agents.length;
         list.innerHTML = agents.map(a => `
             <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700">
-                <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">@${a.username}</p></div>
+                <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">${a.username}</p></div>
                 <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
             </div>
         `).join('');
