@@ -54,22 +54,22 @@ app.post('/api/ftth/login', async (req, res) => {
     }
 });
 
+// مسار جلب الاشتراكات مع تضمين hierarchyLevel=0 لمنع رفض الطلب
 app.get('/api/ftth/subscriptions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await axios.get('https://admin.ftth.iq/api/subscriptions', {
+        const response = await axios.get('https://admin.ftth.iq/api/subscriptions?hierarchyLevel=0', {
             headers: { 'Authorization': token }
         });
         res.json(response.data);
     } catch (error) {
         console.error("خطأ جلب الاشتراكات:", error.response?.data || error.message);
-        res.status(500).json({ error: "تعذر جلب الاشتراكات من المنظومة الرئيسية" });
+        res.status(error.response?.status || 500).json({ error: "تعذر جلب الاشتراكات من المنظومة الرئيسية", details: error.response?.data });
     }
 });
 
-// مسار جلب تفاصيل جهاز الـ ONT للمشترك
 app.get('/api/ftth/ont', async (req, res) => {
     const token = req.headers.authorization;
     const username = req.query.username;
@@ -85,7 +85,6 @@ app.get('/api/ftth/ont', async (req, res) => {
     }
 });
 
-// مسار جلب المناطق
 app.get('/api/ftth/zones', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -100,7 +99,6 @@ app.get('/api/ftth/zones', async (req, res) => {
     }
 });
 
-// مسار جلب الباقات والخطط
 app.get('/api/ftth/bundles', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
