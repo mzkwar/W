@@ -3,158 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة وكلاء FTTH | الرئيسية</title>
+    <title>نظام إدارة FTTH</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Tajawal', sans-serif; }
-    </style>
+    <style> body { font-family: 'Tajawal', sans-serif; } </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-20">
 
     <!-- شاشة تسجيل الدخول -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
-        <div class="bg-slate-800 border border-slate-700 p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="bg-slate-800 border border-slate-700 p-6 rounded-2xl shadow-2xl w-full max-w-md">
             <div class="text-center mb-6">
-                <div class="inline-flex p-3 bg-indigo-600/20 rounded-xl text-indigo-400 mb-2">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457-.39-2.823-1.07-4"></path></svg>
-                </div>
                 <h2 class="text-2xl font-bold text-white">تسجيل الدخول - admin.ftth.iq</h2>
-                <p class="text-xs text-slate-400 mt-1">أدخل بيانات حسابك الرئيسي للاتصال بالموقع</p>
+                <p class="text-xs text-slate-400 mt-1">يتم حفظ الجلسة تلقائياً دون الحاجة لتسجيل الدخول في كل مرة</p>
             </div>
-
             <form id="login-form" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-300 mb-1">البريد الإلكتروني / اسم المستخدم</label>
-                    <input type="email" id="ftth-email" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition" placeholder="example@gmail.com" required>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">اسم المستخدم / البريد</label>
+                    <input type="text" id="ftth-email" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500" required>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-300 mb-1">كلمة المرور</label>
-                    <input type="password" id="ftth-password" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition" placeholder="••••••••" required>
+                    <input type="password" id="ftth-password" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500" required>
                 </div>
-                <button type="submit" id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/30 transition duration-200">
-                    دخول النظام
-                </button>
+                <button type="submit" id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg transition">دخول النظام</button>
             </form>
         </div>
     </div>
 
-    <!-- لوحة تحكم المدير -->
+    <!-- لوحة التحكم الرئيسية بأقسام متفرقة -->
     <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
         <!-- شريط علوي -->
-        <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <span class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg font-bold">FTTH</span>
-                    <div>
-                        <h1 class="text-base font-bold text-white leading-tight">لوحة إدارة المشتركين والوكلاء</h1>
-                        <p class="text-xs text-emerald-400 flex items-center gap-1">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-ping"></span>
-                            متصل بـ admin.ftth.iq
-                        </p>
-                    </div>
-                </div>
-                <button onclick="logout()" class="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white transition">
-                    تسجيل الخروج
-                </button>
-            </div>
+        <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 p-4 flex justify-between items-center">
+            <h1 class="text-base font-bold text-white" id="header-title">المشتركين</h1>
+            <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs">تسجيل الخروج</button>
         </header>
 
-        <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
-            <!-- كروت الإحصائيات الحية -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl shadow-sm">
-                    <p class="text-xs font-medium text-slate-400">إجمالي المشتركين</p>
-                    <p id="stat-total" class="text-2xl font-black text-white mt-1">0</p>
-                </div>
-                <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl shadow-sm">
-                    <p class="text-xs font-medium text-slate-400">المشتركين الفعالين</p>
-                    <p id="stat-active" class="text-2xl font-black text-emerald-400 mt-1">0</p>
-                </div>
-                <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl shadow-sm">
-                    <p class="text-xs font-medium text-slate-400">منتهي الصلاحية</p>
-                    <p id="stat-expired" class="text-2xl font-black text-rose-400 mt-1">0</p>
-                </div>
-                <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl shadow-sm">
-                    <p class="text-xs font-medium text-slate-400">عدد الوكلاء الثانويين</p>
-                    <p id="stat-agents" class="text-2xl font-black text-indigo-400 mt-1">0</p>
-                </div>
+        <!-- كروت الإحصائيات -->
+        <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
+                <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
+                <p id="stat-total" class="text-xl font-bold text-white mt-0.5">0</p>
             </div>
+            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
+                <p class="text-[10px] text-slate-400">المشتركين الفعالين</p>
+                <p id="stat-active" class="text-xl font-bold text-emerald-400 mt-0.5">0</p>
+            </div>
+            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
+                <p class="text-[10px] text-slate-400">منتهي الصلاحية</p>
+                <p id="stat-expired" class="text-xl font-bold text-rose-400 mt-0.5">0</p>
+            </div>
+            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
+                <p class="text-[10px] text-slate-400">الوكلاء الثانويين</p>
+                <p id="stat-agents" class="text-xl font-bold text-indigo-400 mt-0.5">0</p>
+            </div>
+        </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- قسم إضافة وإدارة الوكلاء -->
-                <div class="bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow-sm space-y-4 h-fit">
-                    <h2 class="text-base font-bold text-white border-b border-slate-700 pb-3 flex items-center justify-between">
-                        <span>إضافة وكيل ثانوي</span>
-                        <span class="text-xs font-normal text-slate-400">حسابات خاصة</span>
-                    </h2>
-                    
+        <!-- محتوى الأقسام -->
+        <main class="p-4 flex-1">
+            <!-- قسم المشتركين -->
+            <section id="tab-subscribers" class="tab-content space-y-4">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                        <h2 class="text-sm font-bold text-white">إدارة وتوزيع المشتركين</h2>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <select id="select-agent-assign" class="bg-slate-900 border border-slate-700 text-xs text-white p-2 rounded-xl flex-1">
+                                <option value="">اختر وكيلاً ثانويًا...</option>
+                            </select>
+                            <button onclick="assignSelected()" class="bg-indigo-600 text-white px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap">تحويل المحدد</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-700/60">
+                        <table class="w-full text-right text-xs">
+                            <thead class="bg-slate-900 text-slate-400">
+                                <tr>
+                                    <th class="p-3"><input type="checkbox" id="select-all"></th>
+                                    <th class="p-3">المشترك / Username</th>
+                                    <th class="p-3">حالة الاشتراك</th>
+                                    <th class="p-3">الباقة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subscribers-table-body" class="divide-y divide-slate-700/50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- قسم الوكلاء -->
+            <section id="tab-agents" class="tab-content hidden space-y-4">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4">
+                    <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2">إضافة وكيل ثانوي جديد</h2>
                     <form id="add-agent-form" class="space-y-3">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">الاسم الكامل</label>
-                            <input type="text" id="agent-name" placeholder="مثال: علي محمد" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" required>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">اسم المستخدم (Username)</label>
-                            <input type="text" id="agent-username" placeholder="مثال: ali_sub" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" required>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-400 mb-1">كلمة المرور</label>
-                            <input type="password" id="agent-password" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500" required>
-                        </div>
-                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-bold text-xs transition">
-                            إنشاء وكيل جديد
-                        </button>
+                        <input type="text" id="agent-name" placeholder="الاسم الكامل" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" required>
+                        <input type="text" id="agent-username" placeholder="اسم المستخدم" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" required>
+                        <input type="password" id="agent-password" placeholder="كلمة المرور" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white" required>
+                        <button type="submit" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-bold">إنشاء الوكيل</button>
                     </form>
-
-                    <div class="pt-2">
-                        <h3 class="text-xs font-bold text-slate-300 mb-2">قائمة الوكلاء الحاليين</h3>
-                        <div id="agents-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                            <!-- قائمة الوكلاء -->
-                        </div>
-                    </div>
+                    <h3 class="text-xs font-bold text-slate-300 pt-2">قائمة الوكلاء الحاليين</h3>
+                    <div id="agents-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
                 </div>
+            </section>
 
-                <!-- قسم المشتركين والتحويل -->
-                <div class="lg:col-span-2 bg-slate-800 border border-slate-700 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-                    <div>
-                        <!-- أدوات الفرز والتحويل -->
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-700">
-                            <div>
-                                <h2 class="text-base font-bold text-white">قائمة المشتركين الحية</h2>
-                                <p class="text-xs text-slate-400">حدد المشتركين لتحويلهم إلى وكيل ثانوي</p>
-                            </div>
-                            
-                            <div class="flex items-center gap-2 w-full sm:w-auto">
-                                <select id="select-agent-assign" class="bg-slate-900 border border-slate-700 text-xs text-white p-2.5 rounded-xl outline-none focus:border-indigo-500 flex-1 sm:flex-none">
-                                    <option value="">اختر الوكيل الثانوي...</option>
-                                </select>
-                                <button onclick="assignSelected()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 whitespace-nowrap">
-                                    تحويل المحدد
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- الجدول -->
-                        <div class="overflow-x-auto rounded-xl border border-slate-700/60">
-                            <table class="w-full text-right text-xs">
-                                <thead>
-                                    <tr class="bg-slate-900/80 text-slate-400 border-b border-slate-700">
-                                        <th class="p-3"><input type="checkbox" id="select-all" class="rounded bg-slate-900 border-slate-700"></th>
-                                        <th class="p-3">اسم المستخدم / ID</th>
-                                        <th class="p-3">حالة الاشتراك</th>
-                                        <th class="p-3">تفاصيل الباقة</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="subscribers-table-body" class="divide-y divide-slate-700/50 text-slate-200">
-                                    <!-- البيانات -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+            <!-- قسم التذاكر -->
+            <section id="tab-tickets" class="tab-content hidden space-y-4">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2 mb-3">تذاكر الدعم الفني</h2>
+                    <div id="tickets-list" class="space-y-2"></div>
                 </div>
-            </div>
+            </section>
+
+            <!-- قسم المهام -->
+            <section id="tab-tasks" class="tab-content hidden space-y-4">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2 mb-3">مهام FTTH الفنية</h2>
+                    <p class="text-xs text-slate-400 text-center py-6">لا توجد مهام معلقة حالياً</p>
+                </div>
+            </section>
         </main>
+
+        <!-- شريط التنقل السفلي للأقسام -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex justify-around p-2 z-50">
+            <button onclick="switchTab('subscribers', 'المشتركين')" class="nav-btn text-indigo-400 flex flex-col items-center gap-1 text-[11px] font-bold" id="btn-subscribers">
+                <span>المشتركين</span>
+            </button>
+            <button onclick="switchTab('agents', 'الوكلاء')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-[11px]" id="btn-agents">
+                <span>الوكلاء</span>
+            </button>
+            <button onclick="switchTab('tickets', 'التذاكر')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-[11px]" id="btn-tickets">
+                <span>التذاكر</span>
+            </button>
+            <button onclick="switchTab('tasks', 'المهام')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-[11px]" id="btn-tasks">
+                <span>المهام</span>
+            </button>
+        </nav>
     </div>
 
     <script src="app.js"></script>
