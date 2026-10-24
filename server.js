@@ -9,29 +9,28 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// إنشاء قاعدة البيانات المحلية
 const db = new sqlite3.Database('./database.db', (err) => {
     if (err) console.error("خطأ في قاعدة البيانات:", err.message);
     else console.log("تم الاتصال بقاعدة البيانات المحلية بنجاح.");
 });
 
-// تهيئة الجداول
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS sub_agents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE,
         password TEXT,
-        name TEXT
+        name TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS assigned_subscribers (
         subscriber_id TEXT PRIMARY KEY,
         sub_agent_id INTEGER,
-        FOREIGN KEY(sub_agent_id) REFERENCES sub_agents(id)
+        assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(sub_agent_id) REFERENCES sub_agents(id) ON DELETE CASCADE
     )`);
 });
 
-// 1. تسجيل الدخول إلى admin.ftth.iq (محدث بصيغة URLSearchParams ليتوافق مع Keycloak)
 app.post('/api/ftth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -50,11 +49,10 @@ app.post('/api/ftth/login', async (req, res) => {
         res.json(response.data);
     } catch (error) {
         console.error("خطأ تسجيل الدخول:", error.response?.data || error.message);
-        res.status(401).json({ message: "فشل تسجيل الدخول في admin.ftth.iq", error: error.message });
+        res.status(401).json({ message: "فشل تسجيل الدخول في admin.ftth.iq", error: error.response?.data || error.message });
     }
 });
 
-// 2. جلب المشتركين من admin.ftth.iq باستعمال الـ Token
 app.get('/api/ftth/subscribers', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -65,13 +63,16 @@ app.get('/api/ftth/subscribers', async (req, res) => {
         });
         res.json(response.data);
     } catch (error) {
-        res.status(500).json({ error: "تعذر جلب البيانات من اللوحة الأساسية" });
+        console.error("خطأ جلب البيانات:", error.response?.data || error.message);
+        res.status(500).json({ error: "تعذر جلب البيانات من المنظومة الرئيسية" });
     }
 });
 
-// 3. إضافة وكيل ثانوي جديد
 app.post('/api/admin/sub-agents', (req, res) => {
     const { username, password, name } = req.body;
+    if (!username || !password || !name) {
+        return res.status(400).json({ error: "جميع الحقول مطلوبة" });
+    }
     db.run(`INSERT INTO sub_agents (username, password, name) VALUES (?, ?, ?)`,
         [username, password, name],
         function(err) {
@@ -81,18 +82,22 @@ app.post('/api/admin/sub-agents', (req, res) => {
     );
 });
 
-// 4. عرض كل الوكلاء الثانويين
 app.get('/api/admin/sub-agents', (req, res) => {
-    db.all(`SELECT id, username, name FROM sub_agents`, [], (err, rows) => {
+    const query = `
+        SELECT sa.id, sa.username, sa.name, sa.created_at, COUNT(sub.subscriber_id) as subscriber_count
+        FROM sub_agents sa
+        LEFT JOIN assigned_subscribers sub ON sa.id = sub.sub_agent_id
+        GROUP BY sa.id
+    `;
+    db.all(query, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
 });
 
-// 5. تحويل/تخصيص مشتركين لوكيل ثانوي محدد
 app.post('/api/admin/assign', (req, res) => {
     const { subscriberIds, subAgentId } = req.body;
-    if (!subscriberIds || !subAgentId) return res.status(400).json({ error: "بيانات ناقصة" });
+    if (!subscriberIds || !subAgentId) return res.status(400).json({ error: "يرجى تحديد المشتركين والوكيل" });
 
     const stmt = db.prepare(`INSERT OR REPLACE INTO assigned_subscribers (subscriber_id, sub_agent_id) VALUES (?, ?)`);
     subscriberIds.forEach(id => stmt.run(id, subAgentId));
@@ -101,16 +106,14 @@ app.post('/api/admin/assign', (req, res) => {
     res.json({ message: `تم تحويل ${subscriberIds.length} مشترك بنجاح` });
 });
 
-// 6. تسجيل دخول الوكيل الثانوي
 app.post('/api/subagent/login', (req, res) => {
     const { username, password } = req.body;
     db.get(`SELECT id, name, username FROM sub_agents WHERE username = ? AND password = ?`, [username, password], (err, row) => {
-        if (err || !row) return res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
+        if (err || !row) return res.status(401).json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" });
         res.json(row);
     });
 });
 
-// 7. جلب المشتركين المخصصين لوكيل ثانوي محدد
 app.get('/api/subagent/my-subscribers/:subAgentId', (req, res) => {
     const { subAgentId } = req.params;
     db.all(`SELECT subscriber_id FROM assigned_subscribers WHERE sub_agent_id = ?`, [subAgentId], (err, rows) => {
