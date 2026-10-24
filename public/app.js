@@ -11,7 +11,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// نظام التوست الداخلي الأنيق بدلاً من alert
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) {
@@ -97,20 +96,15 @@ function cleanUsername(userStr) {
     return raw.startsWith('@') ? raw.substring(1) : raw;
 }
 
-// استخراج نوع الاشتراك بالاعتماد على حقل self أولاً
+// استخراج نوع الاشتراك بالاعتماد على حقل self حصراً
 function getSubscriptionType(sub) {
     let typeVal = '';
-    
     if (sub.self) {
         typeVal = extractValue(sub.self);
-    }
-    if ((!typeVal || typeVal.toUpperCase() === 'SELF') && sub.salesType) {
-        typeVal = extractValue(sub.salesType);
     }
     if ((!typeVal || typeVal.toUpperCase() === 'SELF') && sub.package) {
         typeVal = extractValue(sub.package);
     }
-    
     return typeVal || 'SELF';
 }
 
@@ -122,7 +116,7 @@ async function loadSubscribersFast() {
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 animate-pulse">جاري جلب المشتركين...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 animate-pulse">جاري جلب جميع المشتركين...</td></tr>`;
 
     try {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
@@ -161,7 +155,6 @@ function updateGlobalStats(items) {
     document.getElementById('stat-online').innerText = online;
     document.getElementById('stat-offline').innerText = offline;
 
-    // إزالة تأثير النبض (Pulse) عند توفر الأرقام
     ['stat-total', 'stat-active', 'stat-online', 'stat-offline'].forEach(id => {
         document.getElementById(id).classList.remove('animate-pulse');
     });
@@ -224,7 +217,8 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-function openSubscriberCardByUsername(targetUsername) {
+// فتح البطاقة مع جلب معلومات جهاز الـ ONT من الـ API الجديد
+async function openSubscriberCardByUsername(targetUsername) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
 
@@ -235,6 +229,21 @@ function openSubscriberCardByUsername(targetUsername) {
     document.getElementById('modal-sub-user').innerText = username;
 
     const container = document.getElementById('modal-content-card');
+    container.innerHTML = `<p class="text-center text-slate-400 py-4 animate-pulse">جاري جلب تفاصيل الحساب وجهاز الـ ONT...</p>`;
+
+    document.getElementById('subscriber-modal').classList.remove('hidden');
+
+    // جلب تفاصيل الـ ONT الخاصة بالمشترك
+    let ontData = null;
+    try {
+        const ontRes = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
+        if (ontRes.ok) {
+            ontData = await ontRes.json();
+        }
+    } catch (e) {
+        console.error("تعذر جلب بيانات الـ ONT", e);
+    }
+
     container.innerHTML = '';
 
     const excludedFields = [
@@ -258,6 +267,7 @@ function openSubscriberCardByUsername(targetUsername) {
         'hasActiveSession': 'حالة الاتصال'
     };
 
+    // عرض بيانات المشترك الأساسية
     for (const [key, value] of Object.entries(sub)) {
         if (excludedFields.includes(key)) continue;
 
@@ -284,7 +294,18 @@ function openSubscriberCardByUsername(targetUsername) {
         `;
     }
 
-    document.getElementById('subscriber-modal').classList.remove('hidden');
+    // عرض معلومات الـ ONT إن وجدت
+    if (ontData) {
+        container.innerHTML += `<div class="text-indigo-400 font-bold pt-2 border-t border-slate-700 text-center">معلومات جهاز الـ ONT</div>`;
+        for (const [ontKey, ontVal] of Object.entries(ontData)) {
+            container.innerHTML += `
+                <div class="flex justify-between items-center p-2.5 bg-indigo-950/30 rounded-xl border border-indigo-800/40">
+                    <span class="text-indigo-300 font-medium">ONT: ${ontKey}</span>
+                    <span class="text-white font-semibold text-left dir-ltr break-all max-w-[200px]">${extractValue(ontVal)}</span>
+                </div>
+            `;
+        }
+    }
 }
 
 function closeModal() {
@@ -298,7 +319,7 @@ async function loadAgents() {
         const list = document.getElementById('agents-list');
         const select = document.getElementById('select-agent-assign');
         
-        document.getElementById('stat-agents').innerText = agents.length || 0;
+        document.getElementById('stat-agents')?.innerText = agents.length || 0;
         
         if (!Array.isArray(agents) || agents.length === 0) {
             list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد وكلاء حالياً</p>`;
