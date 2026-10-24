@@ -9,7 +9,7 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// استخدام مسار محلي يتوافق مع الاستضافة
+// قاعدة البيانات المحلية
 const dbPath = path.resolve(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error("خطأ في قاعدة البيانات:", err.message);
@@ -34,7 +34,7 @@ db.serialize(() => {
     )`);
 });
 
-// 1. تسجيل الدخول والحصول على التوكن والـ Refresh Token
+// 1. تسجيل الدخول والحصول على التوكن
 app.post('/api/ftth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -57,7 +57,7 @@ app.post('/api/ftth/login', async (req, res) => {
     }
 });
 
-// 2. جلب إحصائيات لوحة التحكم
+// 2. جلب الإحصائيات
 app.get('/api/ftth/summary', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -72,7 +72,23 @@ app.get('/api/ftth/summary', async (req, res) => {
     }
 });
 
-// 3. جلب التذاكر الفنية
+// 3. جلب قائمة المشتركين / الاشتراكات الحقيقية
+app.get('/api/ftth/subscriptions', async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get('https://admin.ftth.iq/api/subscriptions', {
+            headers: { 'Authorization': token }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error("خطأ جلب الاشتراكات:", error.response?.data || error.message);
+        res.status(500).json({ error: "تعذر جلب الاشتراكات من المنظومة الرئيسية" });
+    }
+});
+
+// 4. جلب تذاكر الدعم الفني
 app.get('/api/ftth/tickets', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -87,7 +103,7 @@ app.get('/api/ftth/tickets', async (req, res) => {
     }
 });
 
-// 4. إضافة وكيل ثانوي
+// 5. إضافة وكيل ثانوي
 app.post('/api/admin/sub-agents', (req, res) => {
     const { username, password, name } = req.body;
     if (!username || !password || !name) return res.status(400).json({ error: "جميع الحقول مطلوبة" });
@@ -101,7 +117,7 @@ app.post('/api/admin/sub-agents', (req, res) => {
     );
 });
 
-// 5. جلب الوكلاء الثانويين
+// 6. جلب الوكلاء الثانويين
 app.get('/api/admin/sub-agents', (req, res) => {
     const query = `
         SELECT sa.id, sa.username, sa.name, sa.created_at, COUNT(sub.subscriber_id) as subscriber_count
@@ -115,7 +131,7 @@ app.get('/api/admin/sub-agents', (req, res) => {
     });
 });
 
-// 6. تخصيص مشتركين لوكيل ثانوي
+// 7. تخصيص مشتركين لوكيل ثانوي
 app.post('/api/admin/assign', (req, res) => {
     const { subscriberIds, subAgentId } = req.body;
     if (!subscriberIds || !subAgentId) return res.status(400).json({ error: "بيانات ناقصة" });
@@ -127,7 +143,7 @@ app.post('/api/admin/assign', (req, res) => {
     res.json({ message: `تم تحويل ${subscriberIds.length} مشترك بنجاح` });
 });
 
-// 7. دخول الوكيل الثانوي
+// 8. دخول الوكيل الثانوي
 app.post('/api/subagent/login', (req, res) => {
     const { username, password } = req.body;
     db.get(`SELECT id, name, username FROM sub_agents WHERE username = ? AND password = ?`, [username, password], (err, row) => {
@@ -136,7 +152,7 @@ app.post('/api/subagent/login', (req, res) => {
     });
 });
 
-// 8. جلب مشتركي وكيل ثانوي
+// 9. جلب مشتركي وكيل ثانوي
 app.get('/api/subagent/my-subscribers/:subAgentId', (req, res) => {
     const { subAgentId } = req.params;
     db.all(`SELECT subscriber_id FROM assigned_subscribers WHERE sub_agent_id = ?`, [subAgentId], (err, rows) => {
