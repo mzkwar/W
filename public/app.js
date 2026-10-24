@@ -1,7 +1,7 @@
 let authToken = localStorage.getItem('ftth_token') || '';
-let cachedSubscribers = []; // تخزين مؤقت لجلب البيانات فوراً بدون أي تأخير
+let cachedSubscribers = [];
 
-// التحقق من الجلسة وإظهار اللوحة فوراً إن وجدت لتجنب الوميض
+// تشغيل اللوحة مباشرة عند وجود الجلسة لسرعة فائقة
 window.addEventListener('DOMContentLoaded', () => {
     if (authToken) {
         document.getElementById('login-screen').classList.add('hidden');
@@ -49,7 +49,6 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     }
 });
 
-// التنقل بين الأقسام بدون أي إعادة تحميل
 function switchTab(tabName, title) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
@@ -62,73 +61,44 @@ function switchTab(tabName, title) {
     document.getElementById(`btn-${tabName}`).classList.add('text-indigo-400', 'font-bold');
 }
 
-// جلب المشتركين بسرعة فائقة
+// جلب المشتركين
 async function loadSubscribersFast() {
     const tbody = document.getElementById('subscribers-table-body');
 
-    // إذا كانت البيانات مخزنة مسبقاً، اعرضها فوراً بدون انتظار السيرفر
     if (cachedSubscribers.length > 0) {
-        renderSubscribers(cachedSubscribers);
+        renderTableRows(cachedSubscribers);
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">جاري جلب المشتركين...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">جاري جلب المشتركين...</td></tr>`;
 
     try {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
         if (res.status === 401) { logout(); return; }
         const data = await res.json();
+        
         cachedSubscribers = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
-        renderSubscribers(cachedSubscribers);
+        
+        // حساب وتحديث كروت الإحصائيات العلوية مرة واحدة فقط من البيانات الأصلية
+        updateGlobalStats(cachedSubscribers);
+        
+        renderTableRows(cachedSubscribers);
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
     }
 }
 
-// عرض المشتركين وتحديث الإحصائيات الفعالة والمنتهية وحالة الاتصال
-function renderSubscribers(items) {
-    const tbody = document.getElementById('subscribers-table-body');
-    tbody.innerHTML = '';
-
+// حساب وتثبيت الإحصائيات الكلية للوحة العلوية
+function updateGlobalStats(items) {
     let total = items.length;
     let active = 0;
     let expired = 0;
 
-    if (total === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">لا توجد بيانات متاحة</td></tr>`;
-        return;
-    }
-
-    items.forEach((sub, index) => {
-        const username = sub.username || sub.id || 'N/A';
-        const fullName = sub.fullName || sub.name || sub.subscriberName || username;
-        const isActive = sub.isActive !== undefined ? sub.isActive : (sub.status === 'Active' || sub.status === 'فعال' || sub.state === 'Active');
-        const isOnline = sub.isOnline || sub.online || sub.connectionStatus === 'Online' || sub.isConnected;
-        const plan = sub.packageName || sub.planName || sub.package || 'باقة الإنترنت';
-
+    items.forEach(sub => {
+        const statusVal = typeof sub.status === 'object' ? (sub.status.displayValue || sub.status.id) : sub.status;
+        const isActive = sub.isActive || statusVal === 'Active' || statusVal === 'فعال';
         if (isActive) active++;
         else expired++;
-
-        tbody.innerHTML += `
-            <tr class="hover:bg-slate-700/30 transition">
-                <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
-                <td class="p-3">
-                    <a href="javascript:void(0)" onclick="showSubscriberDetails(${index})" class="font-bold text-indigo-400 hover:underline block">${fullName}</a>
-                    <span class="text-[10px] text-slate-400">@${username}</span>
-                </td>
-                <td class="p-3">
-                    <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
-                        ${isActive ? 'فعال' : 'منتهي'}
-                    </span>
-                </td>
-                <td class="p-3">
-                    <span class="px-2 py-0.5 rounded text-[10px] ${isOnline ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-700 text-slate-400'}">
-                        ${isOnline ? 'متصل' : 'غير متصل'}
-                    </span>
-                </td>
-                <td class="p-3 text-slate-400">${plan}</td>
-            </tr>
-        `;
     });
 
     document.getElementById('stat-total').innerText = total;
@@ -136,35 +106,138 @@ function renderSubscribers(items) {
     document.getElementById('stat-expired').innerText = expired;
 }
 
-// ميزة البحث الفوري باسم المشترك أو اليوزر
-function filterSubscribers() {
-    const query = document.getElementById('search-input').value.toLowerCase();
-    const filtered = cachedSubscribers.filter(sub => {
-        const username = (sub.username || sub.id || '').toLowerCase();
-        const fullName = (sub.fullName || sub.name || sub.subscriberName || '').toLowerCase();
-        return username.includes(query) || fullName.includes(query);
+// رسم صفوف الجدول فقط دون المساس بالإحصائيات العلوية (لتسريع البحث)
+function renderTableRows(items) {
+    const tbody = document.getElementById('subscribers-table-body');
+    tbody.innerHTML = '';
+
+    if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">لا توجد نتائج متطابقة</td></tr>`;
+        return;
+    }
+
+    items.forEach((sub, index) => {
+        // استخراج اسم المشترك ومعرفه من الكائن الهيكلي {"id": "...", "displayValue": "..."}
+        let username = 'N/A';
+        let fullName = 'مشترك FTTH';
+
+        if (typeof sub.subscriber === 'object' && sub.subscriber !== null) {
+            username = sub.subscriber.id || username;
+            fullName = sub.subscriber.displayValue || fullName;
+        } else {
+            username = sub.username || sub.id || username;
+            fullName = sub.fullName || sub.name || sub.displayValue || fullName;
+        }
+
+        // استخراج الحالة والباقة
+        const statusVal = typeof sub.status === 'object' ? (sub.status.displayValue || sub.status.id) : sub.status;
+        const isActive = sub.isActive || statusVal === 'Active' || statusVal === 'فعال';
+        const plan = typeof sub.package === 'object' ? (sub.package.displayValue || sub.package.id) : (sub.packageName || sub.planName || 'باقة الإنترنت');
+
+        tbody.innerHTML += `
+            <tr class="hover:bg-slate-700/30 transition">
+                <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
+                <td class="p-3">
+                    <a href="javascript:void(0)" onclick="openSubscriberCard(${index})" class="font-bold text-indigo-400 hover:underline block">${fullName}</a>
+                    <span class="text-[10px] text-slate-400 font-mono">@${username}</span>
+                </td>
+                <td class="p-3">
+                    <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+                        ${isActive ? 'فعال' : 'منتهي'}
+                    </span>
+                </td>
+                <td class="p-3 text-slate-300">${plan}</td>
+            </tr>
+        `;
     });
-    renderSubscribers(filtered);
 }
 
-// عرض نافذة التفاصيل الكاملة عند الضغط على اسم المشترك
-function showSubscriberDetails(index) {
+// البحث الفوري السريع من الذاكرة المحلية (دون إبطاء الموبايل أو تغيير الإحصائيات العلوية)
+function filterSubscribers() {
+    const query = document.getElementById('search-input').value.trim().toLowerCase();
+    
+    if (!query) {
+        renderTableRows(cachedSubscribers);
+        return;
+    }
+
+    const filtered = cachedSubscribers.filter(sub => {
+        let username = '';
+        let fullName = '';
+
+        if (typeof sub.subscriber === 'object' && sub.subscriber !== null) {
+            username = (sub.subscriber.id || '').toLowerCase();
+            fullName = (sub.subscriber.displayValue || '').toLowerCase();
+        } else {
+            username = (sub.username || sub.id || '').toLowerCase();
+            fullName = (sub.fullName || sub.name || sub.displayValue || '').toLowerCase();
+        }
+
+        return username.includes(query) || fullName.includes(query);
+    });
+
+    renderTableRows(filtered);
+}
+
+// تحويل كائن المشترك إلى بطاقة تفاصيل مخصصة وأنيقة (Profile Card)
+function openSubscriberCard(index) {
     const sub = cachedSubscribers[index];
     if (!sub) return;
 
-    const modalContent = document.getElementById('modal-content');
-    modalContent.innerHTML = '';
+    let username = 'N/A';
+    let fullName = 'مشترك FTTH';
 
-    // توليد قائمة بكل الحقول المتوفرة في بيانات المشترك الأصلية
+    if (typeof sub.subscriber === 'object' && sub.subscriber !== null) {
+        username = sub.subscriber.id || username;
+        fullName = sub.subscriber.displayValue || fullName;
+    } else {
+        username = sub.username || sub.id || username;
+        fullName = sub.fullName || sub.name || sub.displayValue || fullName;
+    }
+
+    document.getElementById('modal-sub-name').innerText = fullName;
+    document.getElementById('modal-sub-user').innerText = `@${username}`;
+
+    const container = document.getElementById('modal-content-card');
+    container.innerHTML = '';
+
+    // معالجة وتنسيق كل حقل داخل بطاقة أنيقة
     for (const [key, value] of Object.entries(sub)) {
+        let displayVal = '';
+        
         if (typeof value === 'object' && value !== null) {
-            modalContent.innerHTML += `<div class="p-2 bg-slate-900 rounded-lg flex justify-between"><span class="text-slate-400">${key}:</span> <span class="text-right">${JSON.stringify(value)}</span></div>`;
+            displayVal = value.displayValue || value.name || value.title || value.id || JSON.stringify(value);
         } else {
-            modalContent.innerHTML += `<div class="p-2 bg-slate-900 rounded-lg flex justify-between"><span class="text-slate-400">${key}:</span> <span class="text-white font-medium text-right">${value ?? 'غير متوفر'}</span></div>`;
+            displayVal = value ?? 'غير متوفر';
         }
+
+        container.innerHTML += `
+            <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700/60">
+                <span class="text-slate-400 font-medium">${getArabicKeyName(key)}</span>
+                <span class="text-white font-semibold text-left dir-ltr">${displayVal}</span>
+            </div>
+        `;
     }
 
     document.getElementById('subscriber-modal').classList.remove('hidden');
+}
+
+// ترجمة مفاتيح الـ API إلى أسماء عربية واضحة داخل البطاقة
+function getArabicKeyName(key) {
+    const map = {
+        'id': 'معرف الاشتراك',
+        'subscriber': 'بيانات المشترك',
+        'status': 'حالة الاشتراك',
+        'package': 'الباقة الحالية',
+        'price': 'السعر',
+        'startDate': 'تاريخ البداية',
+        'expirationDate': 'تاريخ انتهاء الاشتراك',
+        'createdDate': 'تاريخ الإنشاء',
+        'phone': 'رقم الهاتف',
+        'address': 'العنوان',
+        'isOnline': 'حالة الاتصال'
+    };
+    return map[key] || key;
 }
 
 function closeModal() {
