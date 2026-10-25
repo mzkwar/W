@@ -1,5 +1,6 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
+let displayedSubscribers = [];
 let subscribersPowerCache = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -225,15 +226,12 @@ async function loadSubscribersFast() {
         
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
-
-        // جلب البورات في الخلفية لكل المشتركين تدريجياً لملء الجدول بدون ضغط
         fetchSubscribersPowerInBackground(cachedSubscribers);
     } catch (err) {
         console.error(err);
     }
 }
 
-// جلب البورات في الخلفية وتحديث الجدول تلقائياً
 async function fetchSubscribersPowerInBackground(items) {
     for (let sub of items) {
         const username = cleanUsername(sub.username || sub.id);
@@ -250,7 +248,6 @@ async function fetchSubscribersPowerInBackground(items) {
             } catch (e) {
                 subscribersPowerCache[username] = null;
             }
-            // تحديث عرض السطر في الجدول فور توفر البور
             updateSubscriberPowerCell(username);
         }
     }
@@ -330,6 +327,7 @@ function filterByActivationDate() {
 }
 
 function renderTableRows(items) {
+    displayedSubscribers = items;
     const tbody = document.getElementById('subscribers-table-body');
     const countBadge = document.getElementById('subscribers-count-badge');
     if (countBadge) countBadge.innerText = `العدد: ${items.length}`;
@@ -393,75 +391,42 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// دالة ترتيب البورات تنازلياً (القيمة الأقرب للصفر مثل -22 أعلى من -24)
-async function renderPowerRankingModal() {
-    const modal = document.getElementById('power-ranking-modal');
-    const listContainer = document.getElementById('power-ranking-list');
-    modal.classList.remove('hidden');
-    listContainer.innerHTML = `<p class="text-center text-slate-400 py-6 animate-pulse">جاري ترتيب المشتركين حسب قوة الإشارة...</p>`;
-
-    // التأكد من فحص جميع المشتركين غير المفحوصين
-    await Promise.allSettled(cachedSubscribers.map(async (sub) => {
-        const username = cleanUsername(sub.username || sub.id);
-        if (subscribersPowerCache[username] === undefined || subscribersPowerCache[username] === null) {
-            try {
-                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
-                if (res.ok) {
-                    const data = await res.json();
-                    const rx = data?.model?.rxPower !== undefined ? data.model.rxPower : (data?.rxPower !== undefined ? data.rxPower : null);
-                    subscribersPowerCache[username] = rx !== null ? Number(rx) : null;
-                } else {
-                    subscribersPowerCache[username] = null;
-                }
-            } catch (e) {
-                subscribersPowerCache[username] = null;
-            }
-        }
-    }));
-
-    let powerDataList = cachedSubscribers.map(sub => {
-        const username = cleanUsername(sub.username || sub.id);
-        return {
-            name: extractValue(sub.customer) || 'غير محدد',
-            username: username,
-            rxPower: subscribersPowerCache[username],
-            customerId: sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id
-        };
+// الترتيب حسب اسم المشترك (تصاعدي / تنازلي)
+let sortNameAsc = true;
+function sortSubscribersByName() {
+    sortNameAsc = !sortNameAsc;
+    displayedSubscribers.sort((a, b) => {
+        const nameA = (extractValue(a.customer) || '').toLowerCase();
+        const nameB = (extractValue(b.customer) || '').toLowerCase();
+        if (nameA < nameB) return sortNameAsc ? -1 : 1;
+        if (nameA > nameB) return sortNameAsc ? 1 : -1;
+        return 0;
     });
-
-    const validPowerList = powerDataList.filter(item => item.rxPower !== null && item.rxPower !== undefined && !isNaN(item.rxPower));
-    // ترتيب تنازلي (-22 يأتي قبل -24 لأنه أعلى وأقرب للصفر)
-    validPowerList.sort((a, b) => b.rxPower - a.rxPower);
-
-    if (validPowerList.length === 0) {
-        listContainer.innerHTML = `<p class="text-center text-slate-500 py-6">لم يتم العثور على بيانات بور صالحة للمشتركين حالياً</p>`;
-        return;
-    }
-
-    listContainer.innerHTML = validPowerList.map((item, index) => {
-        let powerColor = 'text-emerald-500';
-        if (item.rxPower < -27) powerColor = 'text-rose-500';
-        else if (item.rxPower < -23) powerColor = 'text-amber-500';
-
-        return `
-            <div onclick="closePowerRankingModal(); openSubscriberDetailPage('${item.username}', '${item.customerId}')" class="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-borderLight dark:border-slate-800 flex justify-between items-center cursor-pointer hover:border-cyan-500 transition text-xs">
-                <div>
-                    <span class="font-bold text-indigo-600 dark:text-indigo-400">#${index + 1} - ${item.name}</span>
-                    <span class="text-[10px] text-slate-500 block font-mono">${item.username}</span>
-                </div>
-                <div class="text-left font-mono font-bold ${powerColor} dir-ltr">
-                    ${item.rxPower} dBm
-                </div>
-            </div>
-        `;
-    }).join('');
+    renderTableRows(displayedSubscribers);
+    showToast(sortNameAsc ? "تم الترتيب تصاعدياً حسب الاسم" : "تم الترتيب تنازلياً حسب الاسم");
 }
 
-function closePowerRankingModal() {
-    document.getElementById('power-ranking-modal').classList.add('hidden');
+// الترتيب حسب قوة البور (Rx Power) (من الأقوى للأضعف والعكس)
+let sortPowerDesc = true; // true = الأقوى أولاً (الأقرب للصفر مثل -20 قبل -30)
+function sortSubscribersByPower() {
+    sortPowerDesc = !sortPowerDesc;
+    displayedSubscribers.sort((a, b) => {
+        const userA = cleanUsername(a.username || a.id);
+        const userB = cleanUsername(b.username || b.id);
+        const powA = subscribersPowerCache[userA] !== undefined && subscribersPowerCache[userA] !== null ? subscribersPowerCache[userA] : -999;
+        const powB = subscribersPowerCache[userB] !== undefined && subscribersPowerCache[userB] !== null ? subscribersPowerCache[userB] : -999;
+
+        if (sortPowerDesc) {
+            return powB - powA; // الأقوى أولاً (قيمة أكبر بالسالب)
+        } else {
+            return powA - powB; // الأضعف أولاً
+        }
+    });
+    renderTableRows(displayedSubscribers);
+    showToast(sortPowerDesc ? "تم الترتيب من الأقوى للأضعف حسب البور" : "تم الترتيب من الأضعف للأقوى حسب البور");
 }
 
-// ملف المشترك بالترتيب المطلوب
+// ملف المشترك الشامل
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
