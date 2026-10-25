@@ -17,6 +17,12 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
 
+    <!-- شاشة التحميل الشاملة (Global Loader) -->
+    <div id="global-loader" class="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center space-y-4">
+        <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-sm font-bold text-white tracking-wider">جاري جلب البيانات من المنظومة...</p>
+    </div>
+
     <!-- حاوية الإشعارات الداخلية -->
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 space-y-2 pointer-events-none"></div>
 
@@ -43,11 +49,11 @@
 
     <!-- لوحة التحكم الرئيسية -->
     <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
-        <!-- شريط علوي مع عرض الرصيد -->
+        <!-- شريط علوي مع عرض الرصيد المحسّن -->
         <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 p-4 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <h1 class="text-base font-bold text-white" id="header-title">المشتركين</h1>
-                <span id="wallet-badge" class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-xs font-bold">الرصيد: جاري...</span>
+                <span id="wallet-badge" class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-xs font-bold">الرصيد: جاري التحميل...</span>
             </div>
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
@@ -56,19 +62,19 @@
         <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
-                <p id="stat-total" class="text-xl font-bold text-white mt-0.5 animate-pulse">جاري...</p>
+                <p id="stat-total" class="text-xl font-bold text-white mt-0.5">0</p>
             </div>
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">المشتركين الفعالين</p>
-                <p id="stat-active" class="text-xl font-bold text-emerald-400 mt-0.5 animate-pulse">جاري...</p>
+                <p id="stat-active" class="text-xl font-bold text-emerald-400 mt-0.5">0</p>
             </div>
-            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
-                <p class="text-[10px] text-slate-400">المتصلين الآن</p>
-                <p id="stat-online" class="text-xl font-bold text-blue-400 mt-0.5 animate-pulse">جاري...</p>
+            <div onclick="filterOnlineStatus('online')" class="bg-slate-800 p-3 rounded-xl border border-slate-700/60 cursor-pointer hover:border-blue-500 transition">
+                <p class="text-[10px] text-slate-400">المتصلين الآن (اضغط للعرض)</p>
+                <p id="stat-online" class="text-xl font-bold text-blue-400 mt-0.5">0</p>
             </div>
-            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
-                <p class="text-[10px] text-slate-400">غير المتصلين</p>
-                <p id="stat-offline" class="text-xl font-bold text-slate-400 mt-0.5 animate-pulse">جاري...</p>
+            <div onclick="filterOnlineStatus('offline')" class="bg-slate-800 p-3 rounded-xl border border-slate-700/60 cursor-pointer hover:border-slate-400 transition">
+                <p class="text-[10px] text-slate-400">غير المتصلين (API Sessions)</p>
+                <p id="stat-offline" class="text-xl font-bold text-slate-400 mt-0.5">0</p>
             </div>
         </div>
 
@@ -78,7 +84,12 @@
             <section id="tab-subscribers" class="tab-content space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <h2 class="text-sm font-bold text-white">إدارة وتوزيع المشتركين</h2>
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <h2 class="text-sm font-bold text-white whitespace-nowrap">إدارة المشتركين</h2>
+                            <select id="select-zone-filter" onchange="filterByZone()" class="bg-slate-900 border border-slate-700 text-xs text-white p-2 rounded-xl">
+                                <option value="">جميع المناطق (Zones)</option>
+                            </select>
+                        </div>
                         <div class="flex gap-2 w-full sm:w-auto">
                             <select id="select-agent-assign" class="bg-slate-900 border border-slate-700 text-xs text-white p-2 rounded-xl flex-1">
                                 <option value="">اختر وكيلاً ثانويًا...</option>
@@ -123,11 +134,14 @@
                 </div>
             </section>
 
-            <!-- قسم التذاكر -->
+            <!-- قسم التذاكر المحسّن -->
             <section id="tab-tickets" class="tab-content hidden space-y-4">
-                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                    <h2 class="text-sm font-bold text-white border-b border-slate-700 pb-2 mb-3">تذاكر الدعم الفني</h2>
-                    <div id="tickets-list" class="space-y-2"></div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                        <h2 class="text-sm font-bold text-white">تذاكر الدعم الفني (لدي وللفريق)</h2>
+                        <button onclick="loadTickets()" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-xs font-bold">تحديث التذاكر</button>
+                    </div>
+                    <div id="tickets-list" class="space-y-3"></div>
                 </div>
             </section>
 
@@ -155,7 +169,7 @@
                 </div>
                 
                 <div id="modal-content-card" class="space-y-2.5 text-xs max-h-[60vh] overflow-y-auto pr-1">
-                    <p class="text-center text-slate-400 py-4">جاري تحميل بيانات العميل والـ ONT...</p>
+                    <p class="text-center text-slate-400 py-4">جاري تحميل ملف العميل الشامل وبيانات الـ ONT...</p>
                 </div>
 
                 <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg">إغلاق البطاقة</button>
