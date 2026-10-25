@@ -188,6 +188,22 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
+// دالة شمولية لاستخراج البور بأي شكل إرجاع من الباك إند
+function parseRxPower(data) {
+    if (!data) return null;
+    let val = null;
+    if (data.model !== undefined && data.model !== null) {
+        val = data.model.rxPower ?? data.model.rx_power ?? data.model.power ?? data.model;
+    }
+    if (val === null || typeof val === 'object') {
+        val = data.rxPower ?? data.rx_power ?? data.power ?? data.RxPower;
+    }
+    if (val !== null && val !== undefined && !isNaN(Number(val))) {
+        return Number(val);
+    }
+    return null;
+}
+
 async function loadWalletBalance() {
     const badge = document.getElementById('wallet-badge');
     if (!badge) return;
@@ -240,8 +256,7 @@ async function fetchSubscribersPowerInBackground(items) {
                 const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
                 if (res.ok) {
                     const data = await res.json();
-                    const rx = data?.model?.rxPower !== undefined ? data.model.rxPower : (data?.rxPower !== undefined ? data.rxPower : null);
-                    subscribersPowerCache[username] = rx !== null ? Number(rx) : null;
+                    subscribersPowerCache[username] = parseRxPower(data);
                 } else {
                     subscribersPowerCache[username] = null;
                 }
@@ -257,14 +272,15 @@ function updateSubscriberPowerCell(username) {
     const powerEl = document.getElementById(`power-cell-${username}`);
     if (powerEl) {
         const val = subscribersPowerCache[username];
-        if (val !== null && val !== undefined) {
+        if (val !== null && val !== undefined && !isNaN(val)) {
             let color = 'text-emerald-500';
             if (val < -27) color = 'text-rose-500';
             else if (val < -23) color = 'text-amber-500';
             powerEl.className = `font-mono font-bold ${color} dir-ltr`;
             powerEl.innerText = `${val} dBm`;
         } else {
-            powerEl.innerText = 'غير متوفر';
+            powerEl.className = `text-slate-400 text-xs font-mono`;
+            powerEl.innerText = 'غير متاح';
         }
     }
 }
@@ -350,11 +366,15 @@ function renderTableRows(items) {
 
         const powerVal = subscribersPowerCache[username];
         let powerDisplay = `<span id="power-cell-${username}" class="text-slate-400 text-[11px] animate-pulse">جاري الفحص...</span>`;
-        if (powerVal !== undefined && powerVal !== null) {
-            let color = 'text-emerald-500';
-            if (powerVal < -27) color = 'text-rose-500';
-            else if (powerVal < -23) color = 'text-amber-500';
-            powerDisplay = `<span id="power-cell-${username}" class="font-mono font-bold ${color} dir-ltr">${powerVal} dBm</span>`;
+        if (powerVal !== undefined) {
+            if (powerVal !== null && !isNaN(powerVal)) {
+                let color = 'text-emerald-500';
+                if (powerVal < -27) color = 'text-rose-500';
+                else if (powerVal < -23) color = 'text-amber-500';
+                powerDisplay = `<span id="power-cell-${username}" class="font-mono font-bold ${color} dir-ltr">${powerVal} dBm</span>`;
+            } else {
+                powerDisplay = `<span id="power-cell-${username}" class="text-slate-400 text-xs font-mono">غير متاح</span>`;
+            }
         }
 
         tbody.innerHTML += `
@@ -391,7 +411,6 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// الترتيب حسب اسم المشترك (تصاعدي / تنازلي)
 let sortNameAsc = true;
 function sortSubscribersByName() {
     sortNameAsc = !sortNameAsc;
@@ -406,8 +425,7 @@ function sortSubscribersByName() {
     showToast(sortNameAsc ? "تم الترتيب تصاعدياً حسب الاسم" : "تم الترتيب تنازلياً حسب الاسم");
 }
 
-// الترتيب حسب قوة البور (Rx Power) (من الأقوى للأضعف والعكس)
-let sortPowerDesc = true; // true = الأقوى أولاً (الأقرب للصفر مثل -20 قبل -30)
+let sortPowerDesc = true;
 function sortSubscribersByPower() {
     sortPowerDesc = !sortPowerDesc;
     displayedSubscribers.sort((a, b) => {
@@ -416,17 +434,13 @@ function sortSubscribersByPower() {
         const powA = subscribersPowerCache[userA] !== undefined && subscribersPowerCache[userA] !== null ? subscribersPowerCache[userA] : -999;
         const powB = subscribersPowerCache[userB] !== undefined && subscribersPowerCache[userB] !== null ? subscribersPowerCache[userB] : -999;
 
-        if (sortPowerDesc) {
-            return powB - powA; // الأقوى أولاً (قيمة أكبر بالسالب)
-        } else {
-            return powA - powB; // الأضعف أولاً
-        }
+        return sortPowerDesc ? powB - powA : powA - powB;
     });
     renderTableRows(displayedSubscribers);
     showToast(sortPowerDesc ? "تم الترتيب من الأقوى للأضعف حسب البور" : "تم الترتيب من الأضعف للأقوى حسب البور");
 }
 
-// ملف المشترك الشامل
+// ملف المشترك الشامل مع العرض الفوري والواضح لقوة البور
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -491,7 +505,17 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     // 2. معلومات الـ ONT ثانياً
     const model = ontData?.model || ontData || {};
     let statusText = model.status?.displayValue || model.status || 'Up';
-    let rxPowerVal = model.rxPower !== undefined && model.rxPower !== null ? model.rxPower : 'غير متوفرة';
+    
+    // استخراج البور بدقة
+    let rxPowerParsed = parseRxPower(ontData);
+    let rxPowerVal = rxPowerParsed !== null ? `${rxPowerParsed} dBm` : (subscribersPowerCache[username] !== undefined && subscribersPowerCache[username] !== null ? `${subscribersPowerCache[username]} dBm` : 'غير متوفرة');
+    
+    // تحديث الكاش بالقيم المستخرجة حديثاً
+    if (rxPowerParsed !== null) {
+        subscribersPowerCache[username] = rxPowerParsed;
+        updateSubscriberPowerCell(username);
+    }
+
     let serialNum = matchedSub.deviceDetails?.serial || model.serialNumber || model.sn || 'غير معروف';
     let fdtVal = extractValue(matchedSub.deviceDetails?.fdt) || 'غير متاح';
     let fatVal = extractValue(matchedSub.deviceDetails?.fat) || 'غير متاح';
@@ -501,7 +525,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
             <div class="text-indigo-600 dark:text-indigo-400 font-bold border-b border-borderLight dark:border-slate-700 pb-2">2. معلومات جهاز الـ ONT واختبار الإشارة</div>
             <div class="flex justify-between items-center"><span class="text-slate-500">الرقم التسلسلي (SN):</span><span class="font-bold font-mono dir-ltr">${serialNum}</span></div>
             <div class="flex justify-between items-center"><span class="text-slate-500">الحالة:</span><span class="font-bold text-emerald-500">${statusText}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-500">البور (Rx Power):</span><span class="font-bold font-mono dir-ltr">${rxPowerVal} dBm</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">البور (Rx Power):</span><span class="font-bold font-mono text-indigo-500 dir-ltr">${rxPowerVal}</span></div>
             <div class="flex justify-between items-center pt-1 border-t border-borderLight dark:border-slate-700"><span class="text-slate-500">FDT / FAT:</span><span>${fdtVal} / ${fatVal}</span></div>
         </div>
     `;
