@@ -24,7 +24,7 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
 
-    <!-- شاشة التحميل الاحترافية -->
+    <!-- شاشة التحميل الشاملة -->
     <div id="global-loader" class="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center space-y-6 p-4">
         <div class="relative flex items-center justify-center">
             <div class="absolute w-28 h-28 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
@@ -36,7 +36,6 @@
         </div>
     </div>
 
-    <!-- حاوية الإشعارات -->
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 space-y-2 pointer-events-none"></div>
 
     <!-- شاشة تسجيل الدخول -->
@@ -70,7 +69,7 @@
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات -->
+        <!-- الإحصائيات -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
             <div onclick="filterOnlineStatus('all')" class="bg-slate-800 p-3 rounded-xl border border-slate-700/60 cursor-pointer hover:border-indigo-500 transition">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
@@ -94,7 +93,7 @@
             </div>
         </div>
 
-        <!-- محتوى الأقسام -->
+        <!-- الأقسام -->
         <main class="p-4 flex-1">
             <section id="tab-subscribers" class="tab-content space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
@@ -167,7 +166,7 @@
             </section>
         </main>
 
-        <!-- صفحة تفاصيل المشترك المستقلة -->
+        <!-- صفحة تفاصيل المشترك الكاملة المنفصلة -->
         <div id="subscriber-detail-page" class="hidden min-h-screen bg-slate-900 absolute inset-0 z-50 p-4 flex flex-col space-y-4">
             <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
                 <div class="flex items-center gap-3">
