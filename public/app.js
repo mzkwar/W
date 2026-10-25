@@ -159,7 +159,7 @@ function formatDateClean(isoString) {
         } else if (diffDays === 0) {
             statusText = `[ ينتهي اليوم ]`;
         } else {
-            statusText = `[ منتهي منذ ${Math.abs(diffDays)} يوم ]`;
+            statusText = `[ منذ ${Math.abs(diffDays)} يوم ]`;
         }
         
         return `${datePart} ${timePart} ${statusText}`;
@@ -168,20 +168,39 @@ function formatDateClean(isoString) {
     }
 }
 
-// تنسيق بيانات الـ ONT
+// تحويل الثواني إلى صيغة وقت مقروءة
+function formatDuration(seconds) {
+    if (!seconds && seconds !== 0) return 'غير متوفرة';
+    const days = Math.floor(seconds / (3600 * 24));
+    const hours = Math.floor((seconds % (3600 * 24)) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    let res = '';
+    if (days > 0) res += `${days} يوم `;
+    if (hours > 0) res += `${hours} ساعة `;
+    if (minutes > 0) res += `${minutes} دقيقة`;
+    return res.trim() || `${seconds} ثانية`;
+}
+
+// تنسيق بيانات الـ ONT بدقة
 function formatOntData(ontData) {
     if (!ontData) return '<p class="text-slate-400 text-xs">لا توجد معلومات ONT متاحة</p>';
     
-    let statusText = 'غير معروف';
+    let statusText = 'نشط UP';
     if (ontData.status) {
         const rawStatus = extractValue(ontData.status).toUpperCase();
-        statusText = rawStatus === 'UP' ? 'نشط UP' : (rawStatus === 'DOWN' ? 'غير نشط Down' : rawStatus);
+        if (rawStatus.includes('DOWN') || rawStatus === '1' || rawStatus === 'معطل') {
+            statusText = 'غير نشط Down';
+        } else if (rawStatus.includes('UP') || rawStatus === '0' || rawStatus === 'نشط') {
+            statusText = 'نشط UP';
+        } else {
+            statusText = rawStatus;
+        }
     }
     
-    let rxPowerVal = ontData.rxPower !== undefined ? ontData.rxPower : 'غير متوفر';
+    let rxPowerVal = ontData.rxPower !== undefined && ontData.rxPower !== null ? ontData.rxPower : 'غير متوفر';
 
     let html = `
-        <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/50 space-y-2">
+        <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/50 space-y-2 text-xs">
             <div class="flex justify-between items-center">
                 <span class="text-indigo-300 font-medium">الحالة:</span>
                 <span class="font-bold ${statusText.includes('UP') ? 'text-emerald-400' : 'text-rose-400'}">${statusText}</span>
@@ -195,7 +214,7 @@ function formatOntData(ontData) {
     for (const [k, v] of Object.entries(ontData)) {
         if (k !== 'status' && k !== 'rxPower' && typeof v !== 'object' && v !== null) {
             html += `
-                <div class="flex justify-between items-center text-xs pt-1 border-t border-indigo-900/40">
+                <div class="flex justify-between items-center pt-1 border-t border-indigo-900/40">
                     <span class="text-slate-400">${k}:</span>
                     <span class="text-white dir-ltr">${v}</span>
                 </div>
@@ -206,9 +225,9 @@ function formatOntData(ontData) {
     return html;
 }
 
-// تنسيق جلسة الاتصال activeSession وتاريخ البدء startedAt
+// تنسيق جلسة الاتصال وتاريخ البدء
 function formatSessionDetails(sub) {
-    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-900 rounded-xl border border-slate-700/60 flex justify-between items-center"><span class="text-slate-400">تاريخ البدء:</span><span class="text-white font-mono text-xs">${formatDateClean(sub.startedAt)}</span></div>` : '';
+    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 flex justify-between items-center text-xs"><span class="text-slate-400">تاريخ البدء:</span><span class="text-white font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
     
     if (!sub.activeSession) return startedHtml + `<p class="text-slate-400 text-xs">لا توجد جلسة اتصال نشطة حالياً</p>`;
 
@@ -218,9 +237,9 @@ function formatSessionDetails(sub) {
         <div class="p-3 bg-blue-950/30 rounded-xl border border-blue-800/40 space-y-2 text-xs">
             <div class="text-blue-400 font-bold border-b border-blue-900/50 pb-1">تفاصيل جلسة الاتصال النشطة</div>
             <div class="flex justify-between items-center"><span class="text-slate-400">وقت البدء:</span><span class="text-white">${formatDateClean(session.startedAt)}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-400">مدة الاتصال:</span><span class="text-white font-semibold">${formatDuration(session.sessionTimeInSeconds)}</span></div>
             <div class="flex justify-between items-center"><span class="text-slate-400">عنوان IP:</span><span class="text-white font-mono dir-ltr">${session.ipAddress || 'N/A'}</span></div>
             <div class="flex justify-between items-center"><span class="text-slate-400">عنوان MAC:</span><span class="text-white font-mono dir-ltr">${session.macAddress || 'N/A'}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">مدة الاتصال (بالثواني):</span><span class="text-white font-mono">${session.sessionTimeInSeconds || '0'} ثانية</span></div>
         </div>
     `;
 }
@@ -262,7 +281,7 @@ async function loadZones() {
 
         if (res.ok) {
             const zonesData = await res.json();
-            const zones = Array.isArray(zonesData) ? zonesData : (zonesData.items || zonesData.zones || []);
+            const zones = Array.isArray(zonesData) ? zonesData : (zonesData.items || zonesData.zones || zonesData.data || []);
             const selectZone = document.getElementById('select-zone-filter');
             if (selectZone && zones.length > 0) {
                 selectZone.innerHTML = '<option value="">جميع المناطق (Zones)</option>' + zones.map(z => {
@@ -398,7 +417,6 @@ function renderTableRows(items) {
         const planType = getSubscriptionType(sub);
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || '542203';
 
-        // الصف بأكمله قابل للضغط بدون تقييد على اسم المشترك حصراً
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-700/40 transition cursor-pointer">
                 <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
@@ -436,7 +454,7 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// عرض بيانات المشترك في صفحة مستقلة منفصلة بالكامل
+// عرض بيانات المشترك في صفحة منفصلة بالكامل مع الهاتف وإحداثيات الخريطة
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername) || cachedExpiring.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -470,19 +488,40 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
 
     container.innerHTML = '';
 
-    // عرض جلسة الاتصال وتاريخ البدء
+    // جلسة الاتصال وتاريخ البدء
     container.innerHTML += formatSessionDetails(sub);
 
-    // عرض بيانات الـ ONT بالتنسيق المطلوب
+    // معلومات الـ ONT
     if (ontData) {
         container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT</div>`;
         container.innerHTML += formatOntData(ontData);
     }
 
+    // استخراج الهاتف والإحداثيات إن وجدت في ملف العميل
+    let phoneNum = customerDetails?.phone || customerDetails?.mobile || customerDetails?.phoneNumber || sub.phone || sub.mobile || 'غير متوفر';
+    let lat = customerDetails?.latitude || customerDetails?.lat || sub.latitude;
+    let lng = customerDetails?.longitude || customerDetails?.lng || sub.longitude;
+
+    let contactMapHtml = `
+        <div class="p-3 bg-slate-800 rounded-xl border border-slate-700/60 space-y-2 text-xs">
+            <div class="text-amber-400 font-bold border-b border-slate-700 pb-1">معلومات الاتصال والموقع الجغرافي</div>
+            <div class="flex justify-between items-center"><span class="text-slate-400">رقم الهاتف:</span><a href="tel:${phoneNum}" class="text-emerald-400 font-bold dir-ltr">${phoneNum}</a></div>
+    `;
+    if (lat && lng) {
+        contactMapHtml += `
+            <div class="flex justify-between items-center"><span class="text-slate-400">الإحداثيات:</span><span class="text-white font-mono dir-ltr">${lat}, ${lng}</span></div>
+            <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="block w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg font-bold mt-2">فتح الموقع على خريطة جوجل (Google Maps)</a>
+        `;
+    } else {
+        contactMapHtml += `<div class="text-slate-500 text-center py-1">الإحداثيات الجغرافية غير متوفرة لهذا المشترك</div>`;
+    }
+    contactMapHtml += `</div>`;
+    container.innerHTML += contactMapHtml;
+
     const excludedFields = [
         'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
         'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
-        '_isOnline', 'commitmentPeriod', 'activeSession', 'startedAt'
+        '_isOnline', 'commitmentPeriod', 'activeSession', 'startedAt', 'phone', 'mobile'
     ];
 
     const keyLabels = {
@@ -530,22 +569,6 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     }
     baseInfoHtml += `</div>`;
     container.innerHTML += baseInfoHtml;
-
-    if (customerDetails) {
-        let custHtml = `<div class="space-y-2 pt-3"><div class="text-teal-400 font-bold pb-1 border-b border-slate-700">ملف العميل الشامل</div>`;
-        for (const [cKey, cVal] of Object.entries(customerDetails)) {
-            if (typeof cVal !== 'object' && cVal !== null) {
-                custHtml += `
-                    <div class="flex justify-between items-center p-2.5 bg-teal-950/20 rounded-xl border border-teal-800/40 text-xs">
-                        <span class="text-teal-300 font-medium">${cKey}</span>
-                        <span class="text-white font-semibold text-left dir-ltr break-all max-w-[200px]">${cVal}</span>
-                    </div>
-                `;
-            }
-        }
-        custHtml += `</div>`;
-        container.innerHTML += custHtml;
-    }
 }
 
 function closeSubscriberDetail() {
@@ -584,7 +607,6 @@ async function loadAgents() {
     }
 }
 
-// عرض التذاكر مع رقم التذكرة والعنوان وزر عرض المزيد
 async function loadTickets() {
     const list = document.getElementById('tickets-list');
     if (!list) return;
