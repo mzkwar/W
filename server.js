@@ -69,22 +69,7 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
     }
 });
 
-// الاشتراكات القريبة الانتهاء
-app.get('/api/ftth/subscriptions/expiring', async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
-
-    try {
-        const response = await axios.get('https://admin.ftth.iq/api/subscriptions?filterBy=Expiring&hierarchyLevel=0', {
-            headers: { 'Authorization': token, 'Accept': 'application/json' }
-        });
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: "تعذر جلب الاشتراكات القريبة الانتهاء" });
-    }
-});
-
-// تفاصيل جهاز ONT كاملة (تشمل السيريال نبر وحالة البور)
+// تفاصيل جهاز ONT المطابقة لهيكل الاستجابة الخاص بك
 app.get('/api/ftth/ont', async (req, res) => {
     const token = req.headers.authorization;
     const username = req.query.username;
@@ -100,7 +85,7 @@ app.get('/api/ftth/ont', async (req, res) => {
     }
 });
 
-// بيانات العميل الفردية المتقدمة (استخراج رقم الهاتف والإحداثيات والاشتراكات)
+// ملف العميل الشامل واشتراكاته بالاعتماد على customerId
 app.get('/api/ftth/customer/:id', async (req, res) => {
     const token = req.headers.authorization;
     const customerId = req.params.id;
@@ -113,8 +98,8 @@ app.get('/api/ftth/customer/:id', async (req, res) => {
         ]);
 
         res.json({
-            customer: custRes.data,
-            customerSubscriptions: subsRes.data
+            customer: custRes.data.model || custRes.data,
+            customerSubscriptions: subsRes.data.items || subsRes.data
         });
     } catch (error) {
         res.status(500).json({ error: "تعذر جلب بيانات العميل" });
