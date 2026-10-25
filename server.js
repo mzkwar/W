@@ -54,14 +54,16 @@ app.post('/api/ftth/login', async (req, res) => {
     }
 });
 
-// مسار جلب الاشتراكات مع تضمين hierarchyLevel=0 لمنع رفض الطلب
 app.get('/api/ftth/subscriptions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/subscriptions?hierarchyLevel=0', {
-            headers: { 'Authorization': token }
+            headers: { 
+                'Authorization': token,
+                'Accept': 'application/json'
+            }
         });
         res.json(response.data);
     } catch (error) {
@@ -77,39 +79,14 @@ app.get('/api/ftth/ont', async (req, res) => {
 
     try {
         const response = await axios.get(`https://admin.ftth.iq/api/subscriptions/device/ont?username=${username}`, {
-            headers: { 'Authorization': token }
+            headers: { 
+                'Authorization': token,
+                'Accept': 'application/json'
+            }
         });
         res.json(response.data);
     } catch (error) {
         res.status(500).json({ error: "تعذر جلب معلومات الـ ONT" });
-    }
-});
-
-app.get('/api/ftth/zones', async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
-
-    try {
-        const response = await axios.get('https://admin.ftth.iq/api/locations/zones', {
-            headers: { 'Authorization': token }
-        });
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: "تعذر جلب المناطق" });
-    }
-});
-
-app.get('/api/ftth/bundles', async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
-
-    try {
-        const response = await axios.get('https://admin.ftth.iq/api/plans/bundles?includePrices=false', {
-            headers: { 'Authorization': token }
-        });
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: "تعذر جلب الباقات" });
     }
 });
 
@@ -119,7 +96,10 @@ app.get('/api/ftth/tickets', async (req, res) => {
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/support/tickets?pageSize=12&pageNumber=1&sortCriteria.property=createdAt&sortCriteria.direction=desc&hierarchyLevel=0&additionalFilter=ForMe', {
-            headers: { 'Authorization': token }
+            headers: { 
+                'Authorization': token,
+                'Accept': 'application/json'
+            }
         });
         res.json(response.data);
     } catch (error) {
