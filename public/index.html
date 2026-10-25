@@ -41,7 +41,6 @@
 </head>
 <body class="bg-lightBg text-slate-700 dark:bg-darkBg dark:text-slate-100 min-h-screen pb-24 transition-colors duration-300">
 
-    <!-- شاشة التحميل -->
     <div id="global-loader" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center space-y-6 p-4">
         <div class="relative flex items-center justify-center">
             <div class="absolute w-32 h-32 border-2 border-indigo-500/20 rounded-full animate-ping"></div>
@@ -57,7 +56,6 @@
 
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 space-y-2 pointer-events-none"></div>
 
-    <!-- شاشة تسجيل الدخول -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
         <div class="bg-cardLight dark:bg-cardDark border border-borderLight dark:border-slate-700 p-6 rounded-2xl shadow-xl w-full max-w-md">
             <div class="text-center mb-6">
@@ -78,7 +76,6 @@
         </div>
     </div>
 
-    <!-- لوحة التحكم الرئيسية -->
     <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
         <header class="bg-cardLight dark:bg-cardDark border-b border-borderLight dark:border-slate-700 sticky top-0 z-40 p-4 flex justify-between items-center shadow-sm">
             <div class="flex items-center gap-3">
@@ -92,34 +89,39 @@
         </header>
 
         <main class="p-4 flex-1">
-            <!-- 1. الرئيسية -->
             <section id="tab-home" class="tab-content space-y-6">
                 <div class="text-center space-y-1">
                     <h2 class="text-lg font-bold">مؤشرات أداء الشبكة</h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400">إحصائيات فورية للمشتركين والقدرة الضوئية</p>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div onclick="switchTab('subscribers', 'المشتركين'); filterOnlineStatus('all')" class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500 transition">
-                        <div class="w-20 h-20 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 flex items-center justify-center mb-3 shadow-inner">
-                            <span id="stat-total" class="text-lg font-extrabold">0</span>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div onclick="switchTab('subscribers', 'المشتركين'); filterOnlineStatus('all')" class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500 transition">
+                        <div class="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 flex items-center justify-center mb-2 shadow-inner">
+                            <span id="stat-total" class="text-base font-extrabold">0</span>
                         </div>
                         <p class="text-xs font-bold">إجمالي المشتركين</p>
                     </div>
-                    <div onclick="switchTab('subscribers', 'المشتركين'); filterOnlineStatus('online')" class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-blue-500 transition">
-                        <div class="w-20 h-20 rounded-full border-4 border-blue-500/20 border-t-blue-500 flex items-center justify-center mb-3 shadow-inner">
-                            <span id="stat-online" class="text-lg font-extrabold text-blue-500">0</span>
+                    <div onclick="switchTab('subscribers', 'المشتركين'); filterOnlineStatus('online')" class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-blue-500 transition">
+                        <div class="w-16 h-16 rounded-full border-4 border-blue-500/20 border-t-blue-500 flex items-center justify-center mb-2 shadow-inner">
+                            <span id="stat-online" class="text-base font-extrabold text-blue-500">0</span>
                         </div>
                         <p class="text-xs font-bold">المتصلين الآن</p>
                     </div>
-                    <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center">
-                        <div class="w-20 h-20 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 flex items-center justify-center mb-3 shadow-inner">
-                            <span id="stat-active" class="text-lg font-extrabold text-emerald-500">0</span>
+                    <div onclick="switchTab('subscribers', 'المشتركين'); filterOnlineStatus('offline')" class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-slate-500 transition">
+                        <div class="w-16 h-16 rounded-full border-4 border-slate-500/20 border-t-slate-500 flex items-center justify-center mb-2 shadow-inner">
+                            <span id="stat-offline" class="text-base font-extrabold text-slate-500">0</span>
+                        </div>
+                        <p class="text-xs font-bold">غير المتصلين</p>
+                    </div>
+                    <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm flex flex-col items-center justify-center text-center">
+                        <div class="w-16 h-16 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 flex items-center justify-center mb-2 shadow-inner">
+                            <span id="stat-active" class="text-base font-extrabold text-emerald-500">0</span>
                         </div>
                         <p class="text-xs font-bold">الاشتراكات الفعالة</p>
                     </div>
-                    <div onclick="switchTab('subscribers', 'المشتركين'); filterExpiringSoon()" class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-amber-500/30 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-amber-500 transition">
-                        <div class="w-20 h-20 rounded-full border-4 border-amber-500/20 border-t-amber-500 flex items-center justify-center mb-3 shadow-inner">
-                            <span id="stat-expiring" class="text-lg font-extrabold text-amber-500">0</span>
+                    <div onclick="switchTab('subscribers', 'المشتركين'); filterExpiringSoon()" class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-amber-500/30 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-amber-500 transition col-span-2 md:col-span-1">
+                        <div class="w-16 h-16 rounded-full border-4 border-amber-500/20 border-t-amber-500 flex items-center justify-center mb-2 shadow-inner">
+                            <span id="stat-expiring" class="text-base font-extrabold text-amber-500">0</span>
                         </div>
                         <p class="text-xs font-bold text-amber-500">تنتهي خلال 7 أيام</p>
                     </div>
@@ -133,7 +135,6 @@
                 </div>
             </section>
 
-            <!-- 2. المشتركين -->
             <section id="tab-subscribers" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm space-y-3">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -165,7 +166,7 @@
                                 <tr>
                                     <th class="p-3"><input type="checkbox" id="select-all"></th>
                                     <th class="p-3 cursor-pointer hover:text-indigo-500 select-none" onclick="sortSubscribersByName()" title="انقر للترتيب حسب الاسم">المشترك / اسم المستخدم ↕</th>
-                                    <th class="p-3 cursor-pointer hover:text-indigo-500 select-none" onclick="sortSubscribersByPower()" title="انقر للترتيب حسب البور">قوة البور (Rx Power) ↕</th>
+                                    <th class="p-3">قوة البور (Rx Power)</th>
                                     <th class="p-3">حالة الاشتراك</th>
                                     <th class="p-3">الاتصال</th>
                                     <th class="p-3">نوع الإشتراك</th>
@@ -177,7 +178,6 @@
                 </div>
             </section>
 
-            <!-- 3. الوكلاء -->
             <section id="tab-agents" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm space-y-4">
                     <h2 class="text-sm font-bold border-b border-borderLight dark:border-slate-700 pb-2">إضافة وكيل ثانوي جديد</h2>
@@ -192,7 +192,6 @@
                 </div>
             </section>
 
-            <!-- 4. التذاكر -->
             <section id="tab-tickets" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm space-y-3">
                     <div class="flex justify-between items-center border-b border-borderLight dark:border-slate-700 pb-2">
@@ -203,7 +202,6 @@
                 </div>
             </section>
 
-            <!-- 5. المهام -->
             <section id="tab-tasks" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm space-y-3">
                     <div class="flex justify-between items-center border-b border-borderLight dark:border-slate-700 pb-2">
@@ -215,7 +213,6 @@
             </section>
         </main>
 
-        <!-- صفحة تفاصيل المشترك -->
         <div id="subscriber-detail-page" class="hidden fixed inset-0 bg-lightBg dark:bg-darkBg z-50 p-4 flex flex-col space-y-4 overflow-y-auto">
             <div class="flex justify-between items-center bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm">
                 <div class="flex items-center gap-3">
@@ -229,7 +226,6 @@
             <div id="detail-content-card" class="space-y-4 pb-12 max-w-3xl mx-auto w-full"></div>
         </div>
 
-        <!-- شريط التنقل السفلي -->
         <nav class="fixed bottom-0 left-0 right-0 bg-cardLight dark:bg-cardDark border-t border-borderLight dark:border-slate-700 flex justify-around p-3 z-30 shadow-lg">
             <button onclick="switchTab('home', 'الرئيسية')" class="nav-btn text-indigo-600 dark:text-indigo-400 flex flex-col items-center gap-1 text-xs font-bold" id="btn-home">
                 <span>الرئيسية</span>
