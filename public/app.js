@@ -1,6 +1,5 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
-let cachedExpiring = [];
 
 window.addEventListener('DOMContentLoaded', async () => {
     if (authToken) {
@@ -9,9 +8,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         
         await Promise.all([
             loadSubscribersFast(),
-            loadExpiringSubscribers(),
             loadWalletBalance(),
-            loadZones(),
             loadSessions(),
             loadAgents(),
             loadTickets()
@@ -168,7 +165,6 @@ function formatDateClean(isoString) {
     }
 }
 
-// تحويل الثواني إلى صيغة وقت مقروءة
 function formatDuration(seconds) {
     if (!seconds && seconds !== 0) return 'غير متوفرة';
     const days = Math.floor(seconds / (3600 * 24));
@@ -181,29 +177,26 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// تنسيق بيانات الـ ONT بدقة
+// معالجة بيانات الـ ONT بناءً على هيكل الـ JSON المطلوب
 function formatOntData(ontData) {
     if (!ontData) return '<p class="text-slate-400 text-xs">لا توجد معلومات ONT متاحة</p>';
     
-    let statusText = 'نشط UP';
+    let statusText = 'نشط Up';
     if (ontData.status) {
-        const rawStatus = extractValue(ontData.status).toUpperCase();
-        if (rawStatus.includes('DOWN') || rawStatus === '1' || rawStatus === 'معطل') {
-            statusText = 'غير نشط Down';
-        } else if (rawStatus.includes('UP') || rawStatus === '0' || rawStatus === 'نشط') {
-            statusText = 'نشط UP';
+        if (typeof ontData.status === 'object') {
+            statusText = ontData.status.displayValue || ontData.status.name || 'Up';
         } else {
-            statusText = rawStatus;
+            statusText = String(ontData.status);
         }
     }
     
-    let rxPowerVal = ontData.rxPower !== undefined && ontData.rxPower !== null ? ontData.rxPower : 'غير متوفر';
+    let rxPowerVal = ontData.rxPower !== undefined && ontData.rxPower !== null ? ontData.rxPower : 'غير متوفرة';
 
     let html = `
         <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/50 space-y-2 text-xs">
             <div class="flex justify-between items-center">
                 <span class="text-indigo-300 font-medium">الحالة:</span>
-                <span class="font-bold ${statusText.includes('UP') ? 'text-emerald-400' : 'text-rose-400'}">${statusText}</span>
+                <span class="font-bold text-emerald-400">${statusText}</span>
             </div>
             <div class="flex justify-between items-center">
                 <span class="text-indigo-300 font-medium">البور (Rx Power):</span>
@@ -225,7 +218,6 @@ function formatOntData(ontData) {
     return html;
 }
 
-// تنسيق جلسة الاتصال وتاريخ البدء
 function formatSessionDetails(sub) {
     let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 flex justify-between items-center text-xs"><span class="text-slate-400">تاريخ البدء:</span><span class="text-white font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
     
@@ -274,28 +266,6 @@ async function loadWalletBalance() {
     }
 }
 
-async function loadZones() {
-    try {
-        const res = await fetch('/api/ftth/zones', { headers: { 'Authorization': authToken } });
-        if (handleAuthError(res)) return;
-
-        if (res.ok) {
-            const zonesData = await res.json();
-            const zones = Array.isArray(zonesData) ? zonesData : (zonesData.items || zonesData.zones || zonesData.data || []);
-            const selectZone = document.getElementById('select-zone-filter');
-            if (selectZone && zones.length > 0) {
-                selectZone.innerHTML = '<option value="">جميع المناطق (Zones)</option>' + zones.map(z => {
-                    const zId = z.id || z.name || '';
-                    const zName = z.name || z.title || z.id || 'منطقة غير محددة';
-                    return `<option value="${zId}">${zName}</option>`;
-                }).join('');
-            }
-        }
-    } catch (e) {
-        console.error("خطأ في جلب المناطق", e);
-    }
-}
-
 async function loadSessions() {
     try {
         const res = await fetch('/api/ftth/sessions', { headers: { 'Authorization': authToken } });
@@ -322,28 +292,14 @@ async function loadSubscribersFast() {
     }
 }
 
-async function loadExpiringSubscribers() {
-    try {
-        const res = await fetch('/api/ftth/subscriptions/expiring', { headers: { 'Authorization': authToken } });
-        if (handleAuthError(res)) return;
-
-        if (res.ok) {
-            const data = await res.json();
-            cachedExpiring = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
-            const statExpiring = document.getElementById('stat-expiring');
-            if (statExpiring) statExpiring.innerText = cachedExpiring.length;
-        }
-    } catch (e) {
-        console.error("خطأ جلب الاشتراكات القريبة الانتهاء", e);
-    }
-}
-
 function updateGlobalStats(items) {
     let total = items.length;
     let active = 0;
     let online = 0;
     let offline = 0;
+    let expiringCount = 0;
 
+    const now = new Date();
     items.forEach(sub => {
         const statusVal = extractValue(sub.status);
         const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
@@ -353,12 +309,19 @@ function updateGlobalStats(items) {
         const isOnline = Boolean(sub.hasActiveSession);
         if (isOnline) online++;
         else offline++;
+
+        const expDate = new Date(sub.expires || sub.expirationDate);
+        const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 7) {
+            expiringCount++;
+        }
     });
 
     document.getElementById('stat-total').innerText = total;
     document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-online').innerText = online;
     document.getElementById('stat-offline').innerText = offline;
+    document.getElementById('stat-expiring').innerText = expiringCount;
 }
 
 function filterOnlineStatus(mode) {
@@ -376,26 +339,31 @@ function filterOnlineStatus(mode) {
     }
 }
 
+// عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام أو أقل
 function filterExpiringSoon() {
-    if (cachedExpiring.length > 0) {
-        renderTableRows(cachedExpiring);
-        showToast("عرض المشتركين الذين تنتهي حساباتهم قريباً");
-    } else {
-        showToast("لا توجد حسابات تنتهي قريباً أو جاري التحديث", "error");
-    }
+    const now = new Date();
+    const filtered = cachedSubscribers.filter(sub => {
+        const expDate = new Date(sub.expires || sub.expirationDate);
+        const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && diffDays <= 7;
+    });
+    renderTableRows(filtered);
+    showToast(`عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام (${filtered.length})`);
 }
 
-function filterByZone() {
-    const zoneId = document.getElementById('select-zone-filter').value;
-    if (!zoneId) {
+// فرز حسب تاريخ التفعيل
+function filterByActivationDate() {
+    const val = document.getElementById('filter-activation-date').value;
+    if (!val) {
         renderTableRows(cachedSubscribers);
         return;
     }
     const filtered = cachedSubscribers.filter(sub => {
-        const subZone = extractValue(sub.zoneId || sub.zone || '');
-        return subZone.includes(zoneId);
+        const started = sub.startedAt || sub.createdAt || sub.activationDate || '';
+        return started.startsWith(val);
     });
     renderTableRows(filtered);
+    showToast(`تم الفرز حسب تاريخ التفعيل: ${val}`);
 }
 
 function renderTableRows(items) {
@@ -415,7 +383,7 @@ function renderTableRows(items) {
         const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
         const isOnline = Boolean(sub.hasActiveSession);
         const planType = getSubscriptionType(sub);
-        const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || '542203';
+        const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || '560969';
 
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-700/40 transition cursor-pointer">
@@ -454,9 +422,9 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// عرض بيانات المشترك في صفحة منفصلة بالكامل مع الهاتف وإحداثيات الخريطة
+// عرض بيانات المشترك في صفحة منفصلة مع جلب رقم الهاتف والإحداثيات
 async function openSubscriberDetailPage(targetUsername, customerId) {
-    const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername) || cachedExpiring.find(s => cleanUsername(s.username || s.id) === targetUsername);
+    const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
 
     const realCustomerName = extractValue(sub.customer) || 'غير محدد';
@@ -471,7 +439,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     container.innerHTML = `<p class="text-center text-slate-400 py-12 animate-pulse">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
     detailPage.classList.remove('hidden');
 
-    let customerDetails = null;
+    let customerData = null;
     let ontData = null;
 
     try {
@@ -480,7 +448,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
             fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } })
         ]);
 
-        if (custRes.ok) customerDetails = await custRes.json();
+        if (custRes.ok) customerData = await custRes.json();
         if (ontRes.ok) ontData = await ontRes.json();
     } catch (e) {
         console.error("خطأ في جلب التفاصيل", e);
@@ -491,16 +459,17 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     // جلسة الاتصال وتاريخ البدء
     container.innerHTML += formatSessionDetails(sub);
 
-    // معلومات الـ ONT
+    // معلومات الـ ONT المحسنة
     if (ontData) {
         container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT</div>`;
         container.innerHTML += formatOntData(ontData);
     }
 
-    // استخراج الهاتف والإحداثيات إن وجدت في ملف العميل
-    let phoneNum = customerDetails?.phone || customerDetails?.mobile || customerDetails?.phoneNumber || sub.phone || sub.mobile || 'غير متوفر';
-    let lat = customerDetails?.latitude || customerDetails?.lat || sub.latitude;
-    let lng = customerDetails?.longitude || customerDetails?.lng || sub.longitude;
+    // استخراج الهاتف والإحداثيات بدقة من الـ API المضمن
+    const custObj = customerData?.customer || {};
+    let phoneNum = custObj.phone || custObj.mobile || custObj.phoneNumber || custObj.contactNumber || sub.phone || sub.mobile || 'غير متوفر';
+    let lat = custObj.latitude || custObj.lat || sub.latitude;
+    let lng = custObj.longitude || custObj.lng || sub.longitude;
 
     let contactMapHtml = `
         <div class="p-3 bg-slate-800 rounded-xl border border-slate-700/60 space-y-2 text-xs">
@@ -528,7 +497,6 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
         'customer': 'اسم المشترك',
         'username': 'اسم المستخدم',
         'partner': 'الوكيل',
-        'zone': 'المنطقة',
         'status': 'حالة الاشتراك',
         'expires': 'تاريخ الانتهاء',
         'expirationDate': 'تاريخ الانتهاء',
