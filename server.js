@@ -137,7 +137,7 @@ app.get('/api/ftth/sessions', async (req, res) => {
     }
 });
 
-// التذاكر
+// مسار التذاكر المطابق لهيكلك الجديد
 app.get('/api/ftth/tickets', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -149,6 +149,21 @@ app.get('/api/ftth/tickets', async (req, res) => {
         res.json(response.data);
     } catch (error) {
         res.status(500).json({ error: "تعذر جلب التذاكر" });
+    }
+});
+
+// مسار المهام / الطلبات (Requests) المطابق لهيكلك الجديد
+app.get('/api/ftth/requests', async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get('https://admin.ftth.iq/api/requests?pageSize=10&pageNumber=1&sortCriteria.property=CreatedAt&sortCriteria.direction=desc&typeIds=28be9a02-1365-400b-9db4-003829eb962c&status=Open&additionalFilters=MyRequests', {
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "تعذر جلب المهام" });
     }
 });
 
