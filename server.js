@@ -54,7 +54,6 @@ app.post('/api/ftth/login', async (req, res) => {
     }
 });
 
-// قائمة الاشتراكات العامة
 app.get('/api/ftth/subscriptions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -69,7 +68,6 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
     }
 });
 
-// تفاصيل الـ ONT حسب الـ Username
 app.get('/api/ftth/ont', async (req, res) => {
     const token = req.headers.authorization;
     const username = req.query.username;
@@ -85,7 +83,6 @@ app.get('/api/ftth/ont', async (req, res) => {
     }
 });
 
-// ملف العميل الشامل واشتراكاته بالاعتماد على customerId
 app.get('/api/ftth/customer/:id', async (req, res) => {
     const token = req.headers.authorization;
     const customerId = req.params.id;
@@ -106,7 +103,6 @@ app.get('/api/ftth/customer/:id', async (req, res) => {
     }
 });
 
-// محفظة الشريك
 app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     const token = req.headers.authorization;
     const partnerId = req.params.partnerId;
@@ -122,7 +118,6 @@ app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     }
 });
 
-// الجلسات
 app.get('/api/ftth/sessions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -137,7 +132,6 @@ app.get('/api/ftth/sessions', async (req, res) => {
     }
 });
 
-// مسار التذاكر المطابق لهيكلك الجديد
 app.get('/api/ftth/tickets', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -152,7 +146,6 @@ app.get('/api/ftth/tickets', async (req, res) => {
     }
 });
 
-// مسار المهام / الطلبات (Requests) المطابق لهيكلك الجديد
 app.get('/api/ftth/requests', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -202,22 +195,6 @@ app.post('/api/admin/assign', (req, res) => {
     stmt.finalize();
 
     res.json({ message: `تم تحويل ${subscriberIds.length} مشترك بنجاح` });
-});
-
-app.post('/api/subagent/login', (req, res) => {
-    const { username, password } = req.body;
-    db.get(`SELECT id, name, username FROM sub_agents WHERE username = ? AND password = ?`, [username, password], (err, row) => {
-        if (err || !row) return res.status(401).json({ error: "بيانات دخول الوكيل غير صحيحة" });
-        res.json(row);
-    });
-});
-
-app.get('/api/subagent/my-subscribers/:subAgentId', (req, res) => {
-    const { subAgentId } = req.params;
-    db.all(`SELECT subscriber_id FROM assigned_subscribers WHERE sub_agent_id = ?`, [subAgentId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows.map(r => r.subscriber_id));
-    });
 });
 
 const PORT = process.env.PORT || 3000;
