@@ -69,13 +69,13 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
     }
 });
 
-// الاشتراكات التي تنتهي قريباً (Expiring)
+// الاشتراكات التي تنتهي قريباً (Expiring) مع تصحيح الرابط وإضافة api/
 app.get('/api/ftth/subscriptions/expiring', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await axios.get('https://admin.ftth.iq/subscriptions?filterBy=Expiring', {
+        const response = await axios.get('https://admin.ftth.iq/api/subscriptions?filterBy=Expiring&hierarchyLevel=0', {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
@@ -100,7 +100,7 @@ app.get('/api/ftth/ont', async (req, res) => {
     }
 });
 
-// بيانات العميل الفردية
+// بيانات العميل الفردية (شاملة الهاتف والإحداثيات)
 app.get('/api/ftth/customer/:id', async (req, res) => {
     const token = req.headers.authorization;
     const customerId = req.params.id;
@@ -132,7 +132,7 @@ app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     }
 });
 
-// المناطق (Zones)
+// المناطق (Zones) مع معالجة الاستجابة
 app.get('/api/ftth/zones', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -147,7 +147,7 @@ app.get('/api/ftth/zones', async (req, res) => {
     }
 });
 
-// الجلسات (Sessions للأونلاين/أوفلاين)
+// الجلسات
 app.get('/api/ftth/sessions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -184,7 +184,7 @@ app.post('/api/admin/sub-agents', (req, res) => {
     db.run(`INSERT INTO sub_agents (username, password, name) VALUES (?, ?, ?)`,
         [username, password, name],
         function(err) {
-            if (err) return res.status(400).json({ error: "اسم المستخدم مستعمل بالفعل أو مسجل مسبقاً" });
+            if (err) return res.status(400).json({ error: "اسم المستخدم مستعمل بالفعل" });
             res.json({ id: this.lastID, username, name });
         }
     );
@@ -214,10 +214,11 @@ app.post('/api/admin/assign', (req, res) => {
     res.json({ message: `تم تحويل ${subscriberIds.length} مشترك بنجاح` });
 });
 
+// إصلاح تسجيل دخول الوكيل الثانوي
 app.post('/api/subagent/login', (req, res) => {
     const { username, password } = req.body;
     db.get(`SELECT id, name, username FROM sub_agents WHERE username = ? AND password = ?`, [username, password], (err, row) => {
-        if (err || !row) return res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
+        if (err || !row) return res.status(401).json({ error: "بيانات دخول الوكيل غير صحيحة" });
         res.json(row);
     });
 });
