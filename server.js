@@ -10,7 +10,6 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// إنشاء عميل HTTP يتخطى مشاكل شهادات الأمان لضمان نجاح الاتصال بـ admin.ftth.iq
 const apiClient = axios.create({
     httpsAgent: new https.Agent({ rejectUnauthorized: false })
 });
@@ -85,14 +84,12 @@ app.get('/api/ftth/ont', async (req, res) => {
         });
         res.json(response.data);
     } catch (error) {
-        console.error("خطأ جلب ONT الأساسي:", error.message);
         try {
             const altResponse = await apiClient.get(`https://admin.ftth.iq/api/subscriptions/ont?username=${username}`, {
                 headers: { 'Authorization': token, 'Accept': 'application/json' }
             });
             return res.json(altResponse.data);
         } catch (err) {
-            console.error("خطأ جلب ONT البديل:", err.message);
             res.status(500).json({ error: "تعذر جلب بيانات الـ ONT" });
         }
     }
