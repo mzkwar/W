@@ -177,12 +177,13 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// عرض بيانات الـ ONT المتقدمة (تشمل السيريال نبر والبور والـ MAC)
-function formatOntData(ontData) {
-    if (!ontData) return '<p class="text-slate-400 text-xs">لا توجد معلومات ONT متاحة</p>';
+// معالجة عرض بيانات الـ ONT بدقة مطابقة تماماً للاستجابة المرسلة
+function formatOntData(ontData, subDeviceDetails) {
+    if (!ontData && !subDeviceDetails) return '<p class="text-slate-400 text-xs">لا توجد معلومات ONT متاحة</p>';
     
-    let statusText = 'نشط Up';
-    if (ontData.status) {
+    // استخراج الحالة من الـ model أو الـ object
+    let statusText = 'Up';
+    if (ontData?.status) {
         if (typeof ontData.status === 'object') {
             statusText = ontData.status.displayValue || ontData.status.name || 'Up';
         } else {
@@ -190,8 +191,10 @@ function formatOntData(ontData) {
         }
     }
     
-    let rxPowerVal = ontData.rxPower !== undefined && ontData.rxPower !== null ? ontData.rxPower : 'غير متوفرة';
-    let serialNum = ontData.serialNumber || ontData.sn || ontData.mac || ontData.id || 'غير معروف';
+    let rxPowerVal = ontData?.rxPower !== undefined && ontData?.rxPower !== null ? ontData.rxPower : 'غير متوفرة';
+    let serialNum = subDeviceDetails?.serial || ontData?.serialNumber || ontData?.sn || ontData?.mac || 'غير معروف';
+    let fdtVal = extractValue(subDeviceDetails?.fdt) || 'غير متاح';
+    let fatVal = extractValue(subDeviceDetails?.fat) || 'غير متاح';
 
     let html = `
         <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/50 space-y-2 text-xs">
@@ -207,24 +210,17 @@ function formatOntData(ontData) {
                 <span class="text-indigo-300 font-medium">البور (Rx Power):</span>
                 <span class="font-bold text-white dir-ltr">${rxPowerVal} dBm</span>
             </div>
+            <div class="flex justify-between items-center pt-1 border-t border-indigo-900/40">
+                <span class="text-slate-400">FDT / FAT:</span>
+                <span class="text-white">${fdtVal} / ${fatVal}</span>
+            </div>
+        </div>
     `;
-
-    for (const [k, v] of Object.entries(ontData)) {
-        if (!['status', 'rxPower', 'serialNumber', 'sn'].includes(k) && typeof v !== 'object' && v !== null) {
-            html += `
-                <div class="flex justify-between items-center pt-1 border-t border-indigo-900/40">
-                    <span class="text-slate-400">${k}:</span>
-                    <span class="text-white dir-ltr">${v}</span>
-                </div>
-            `;
-        }
-    }
-    html += `</div>`;
     return html;
 }
 
 function formatSessionDetails(sub) {
-    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 flex justify-between items-center text-xs"><span class="text-slate-400">تاريخ البدء:</span><span class="text-white font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
+    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 flex justify-between items-center text-xs"><span class="text-slate-400">تاريخ التفعيل/البدء:</span><span class="text-white font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
     
     if (!sub.activeSession) return startedHtml + `<p class="text-slate-400 text-xs">لا توجد جلسة اتصال نشطة حالياً</p>`;
 
@@ -386,7 +382,9 @@ function renderTableRows(items) {
         const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
         const isOnline = Boolean(sub.hasActiveSession);
         const planType = getSubscriptionType(sub);
-        const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || '560969';
+        
+        // استخراج معرف العميل الصحيح من كائن المشترك أو الـ ID
+        const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || '863582';
 
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-700/40 transition cursor-pointer">
@@ -425,7 +423,7 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// فتح التفاصيل مع تجميع كافة البيانات (رقم الهاتف، SN ONT، الإحداثيات)
+// عرض ملف المشترك الشامل مع استخراج رقم الهاتف، الإحداثيات، وبور الـ ONT بدقة
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -439,7 +437,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const detailPage = document.getElementById('subscriber-detail-page');
     const container = document.getElementById('detail-content-card');
     
-    container.innerHTML = `<p class="text-center text-slate-400 py-12 animate-pulse">جاري جلب ملف العميل الشامل وبور الـ ONT والرقم التسلسلي...</p>`;
+    container.innerHTML = `<p class="text-center text-slate-400 py-12 animate-pulse">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
     detailPage.classList.remove('hidden');
 
     let customerData = null;
@@ -459,25 +457,31 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
 
     container.innerHTML = '';
 
-    // 1. تفاصيل جلسة الاتصال وتاريخ البدء
+    // 1. تفاصيل جلسة الاتصال وتاريخ التفعيل
     container.innerHTML += formatSessionDetails(sub);
 
-    // 2. تفاصيل الـ ONT والرقم التسلسلي (SN ONT)
-    if (ontData) {
-        container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT واختبار الإشارة</div>`;
-        container.innerHTML += formatOntData(ontData);
-    }
+    // 2. معلومات الـ ONT (تتضمن model الـ ONT أو الـ deviceDetails)
+    const rawOntModel = ontData?.model || ontData;
+    container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT واختبار الإشارة</div>`;
+    container.innerHTML += formatOntData(rawOntModel, sub.deviceDetails);
 
-    // 3. استخراج رقم الهاتف والموقع على الخريطة
-    const custObj = customerData?.customer || {};
-    let phoneNum = custObj.phone || custObj.mobile || custObj.phoneNumber || custObj.contactNumber || sub.phone || sub.mobile || 'غير مسجل';
-    let lat = custObj.latitude || custObj.lat || sub.latitude;
-    let lng = custObj.longitude || custObj.lng || sub.longitude;
+    // 3. استخراج الهاتف والإحداثيات من هيكل العميل الحقيقي الذي أرسلته
+    const custModel = customerData?.customer || {};
+    const primaryContact = custModel.primaryContact || {};
+    const addresses = custModel.addresses || [];
+    const primaryAddress = addresses[0] || {};
+    const gps = primaryAddress.gpsCoordinate || {};
+
+    let phoneNum = primaryContact.mobile || primaryContact.secondaryPhone || custModel.phone || sub.phone || 'غير مسجل';
+    let lat = gps.latitude || sub.latitude;
+    let lng = gps.longitude || sub.longitude;
+    let addressDisplay = primaryAddress.displayValue || 'العنوان غير متوفر';
 
     let contactMapHtml = `
         <div class="p-3 bg-slate-800 rounded-xl border border-slate-700/60 space-y-2 text-xs">
             <div class="text-amber-400 font-bold border-b border-slate-700 pb-1">معلومات الاتصال والموقع الجغرافي</div>
             <div class="flex justify-between items-center"><span class="text-slate-400">رقم الهاتف:</span><a href="tel:${phoneNum}" class="text-emerald-400 font-bold dir-ltr">${phoneNum}</a></div>
+            <div class="flex justify-between items-center"><span class="text-slate-400">العنوان:</span><span class="text-white">${addressDisplay}</span></div>
     `;
     if (lat && lng) {
         contactMapHtml += `
@@ -494,7 +498,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const excludedFields = [
         'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
         'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
-        '_isOnline', 'commitmentPeriod', 'activeSession', 'startedAt', 'phone', 'mobile'
+        '_isOnline', 'commitmentPeriod', 'activeSession', 'startedAt', 'phone', 'mobile', 'deviceDetails'
     ];
 
     const keyLabels = {
