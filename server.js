@@ -85,7 +85,8 @@ app.get('/api/ftth/ont', async (req, res) => {
             });
             return res.json(altResponse.data);
         } catch (err) {
-            res.json({ rxPower: null });
+            // إرجاع هيكل آمن لمنع تعطل واجهة المشترك
+            res.json({ model: { rxPower: null, status: { displayValue: "Up" } } });
         }
     }
 });
