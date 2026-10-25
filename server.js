@@ -69,21 +69,6 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
     }
 });
 
-// الاشتراكات التي تنتهي قريباً (Expiring) مع تصحيح الرابط وإضافة api/
-app.get('/api/ftth/subscriptions/expiring', async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
-
-    try {
-        const response = await axios.get('https://admin.ftth.iq/api/subscriptions?filterBy=Expiring&hierarchyLevel=0', {
-            headers: { 'Authorization': token, 'Accept': 'application/json' }
-        });
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: "تعذر جلب الاشتراكات القريبة الانتهاء" });
-    }
-});
-
 // تفاصيل جهاز ONT
 app.get('/api/ftth/ont', async (req, res) => {
     const token = req.headers.authorization;
@@ -100,17 +85,22 @@ app.get('/api/ftth/ont', async (req, res) => {
     }
 });
 
-// بيانات العميل الفردية (شاملة الهاتف والإحداثيات)
+// بيانات العميل الفردية والاشتراكات التابعة له
 app.get('/api/ftth/customer/:id', async (req, res) => {
     const token = req.headers.authorization;
     const customerId = req.params.id;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await axios.get(`https://admin.ftth.iq/api/customers/${customerId}`, {
-            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        const [custRes, subsRes] = await Promise.all([
+            axios.get(`https://admin.ftth.iq/api/customers/${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: {} })),
+            axios.get(`https://admin.ftth.iq/api/customers/subscriptions?customerId=${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: [] }))
+        ]);
+
+        res.json({
+            customer: custRes.data,
+            customerSubscriptions: subsRes.data
         });
-        res.json(response.data);
     } catch (error) {
         res.status(500).json({ error: "تعذر جلب بيانات العميل" });
     }
@@ -129,21 +119,6 @@ app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
         res.json(response.data);
     } catch (error) {
         res.status(500).json({ error: "تعذر جلب رصيد المحفظة" });
-    }
-});
-
-// المناطق (Zones) مع معالجة الاستجابة
-app.get('/api/ftth/zones', async (req, res) => {
-    const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
-
-    try {
-        const response = await axios.get('https://admin.ftth.iq/api/locations/zones', {
-            headers: { 'Authorization': token, 'Accept': 'application/json' }
-        });
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: "تعذر جلب المناطق" });
     }
 });
 
@@ -214,7 +189,6 @@ app.post('/api/admin/assign', (req, res) => {
     res.json({ message: `تم تحويل ${subscriberIds.length} مشترك بنجاح` });
 });
 
-// إصلاح تسجيل دخول الوكيل الثانوي
 app.post('/api/subagent/login', (req, res) => {
     const { username, password } = req.body;
     db.get(`SELECT id, name, username FROM sub_agents WHERE username = ? AND password = ?`, [username, password], (err, row) => {
