@@ -3,7 +3,6 @@ let cachedSubscribers = [];
 let subscribersPowerCache = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
-    // الوضع الافتراضي الفاتح (Light Mode)
     const savedTheme = localStorage.getItem('theme') || 'light';
     if (savedTheme === 'dark') {
         document.documentElement.classList.add('dark');
@@ -324,38 +323,46 @@ function filterSubscribers() {
     renderTableRows(cachedSubscribers.filter(sub => extractValue(sub.customer).toLowerCase().includes(query) || cleanUsername(sub.username || sub.id).toLowerCase().includes(query)));
 }
 
+// دالة ترتيب البورات المحسنة (تعمل بشكل متوازي وآمن بدون أخطاء)
 async function renderPowerRankingModal() {
     const modal = document.getElementById('power-ranking-modal');
     const listContainer = document.getElementById('power-ranking-list');
     modal.classList.remove('hidden');
     listContainer.innerHTML = `<p class="text-center text-slate-400 py-6 animate-pulse">جاري فحص وجلب إشارات البور للمشتركين...</p>`;
 
-    let powerDataList = [];
-    for (let sub of cachedSubscribers) {
+    // فحص البورات بشكل متوازيدفعات سريعة
+    const promises = cachedSubscribers.map(async (sub) => {
         const username = cleanUsername(sub.username || sub.id);
-        if (!subscribersPowerCache[username]) {
+        if (subscribersPowerCache[username] === undefined) {
             try {
                 const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
                 if (res.ok) {
                     const data = await res.json();
                     const rx = data?.model?.rxPower !== undefined ? data.model.rxPower : (data?.rxPower !== undefined ? data.rxPower : null);
-                    subscribersPowerCache[username] = rx;
+                    subscribersPowerCache[username] = rx !== null ? Number(rx) : null;
+                } else {
+                    subscribersPowerCache[username] = null;
                 }
-            } catch (e) { subscribersPowerCache[username] = null; }
+            } catch (e) {
+                subscribersPowerCache[username] = null;
+            }
         }
-        powerDataList.push({
+        return {
             name: extractValue(sub.customer) || 'غير محدد',
             username: username,
             rxPower: subscribersPowerCache[username],
             customerId: sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id
-        });
-    }
+        };
+    });
 
-    const validPowerList = powerDataList.filter(item => item.rxPower !== null && item.rxPower !== undefined);
-    validPowerList.sort((a, b) => Number(b.rxPower) - Number(a.rxPower));
+    const powerDataList = await Promise.all(promises);
+
+    // تصفية القيم الموجودة وترتيبها تنازلياً (الأعلى بالسالب أي الأقرب للصفر أولاً)
+    const validPowerList = powerDataList.filter(item => item.rxPower !== null && item.rxPower !== undefined && !isNaN(item.rxPower));
+    validPowerList.sort((a, b) => b.rxPower - a.rxPower);
 
     if (validPowerList.length === 0) {
-        listContainer.innerHTML = `<p class="text-center text-slate-500 py-6">لا توجد بيانات بور متاحة حالياً</p>`;
+        listContainer.innerHTML = `<p class="text-center text-slate-500 py-6">لم يتم العثور على بيانات بور صالحة للمشتركين حالياً</p>`;
         return;
     }
 
@@ -382,7 +389,7 @@ function closePowerRankingModal() {
     document.getElementById('power-ranking-modal').classList.add('hidden');
 }
 
-// ملف المشترك مرتب بالترتيب المطلوب بدقة
+// ملف المشترك مرتب بالترتيب المطلوب
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
