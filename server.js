@@ -79,7 +79,15 @@ app.get('/api/ftth/ont', async (req, res) => {
         });
         res.json(response.data);
     } catch (error) {
-        res.status(500).json({ error: "تعذر جلب معلومات الـ ONT" });
+        // محاولة مسار بديل في حال اختلاف الendpoint
+        try {
+            const altResponse = await axios.get(`https://admin.ftth.iq/api/subscriptions/ont?username=${username}`, {
+                headers: { 'Authorization': token, 'Accept': 'application/json' }
+            });
+            return res.json(altResponse.data);
+        } catch (err) {
+            res.json({ rxPower: null });
+        }
     }
 });
 
