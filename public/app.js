@@ -434,7 +434,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     personalLocationHtml += `</div>`;
     container.innerHTML += personalLocationHtml;
 
-    // استخراج البور بدقة مطابقة تماماً لهيكل الاستجابة (ontData.model.rxPower)
+    // استخراج قيمة الـ rxPower بدقة مطابقة تماماً لهيكل الاستجابة {"model": {"rxPower": -19.91}}
     const model = ontData?.model || ontData || {};
     let statusText = model.status?.displayValue || model.status || 'Up';
     
