@@ -49,8 +49,11 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         });
         const data = await res.json();
         
-        if (res.ok && data.access_token) {
-            authToken = `Bearer ${data.access_token}`;
+        // استخراج التوكن بمرونة تامة بغض النظر عن اسم المفتاح
+        const rawToken = data.access_token || data.token || data.accessToken;
+
+        if (res.ok && rawToken) {
+            authToken = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;
             localStorage.setItem('ftth_token', authToken);
 
             await loadSubscribersFast();
@@ -121,8 +124,8 @@ async function loadSubscribersFast() {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
         
         if (res.status === 401) {
-            showToast("انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً", "error");
-            logout();
+            showToast("انتهت صلاحية الجلسة أو بيانات الدخول غير صالحة", "error");
+            // عدم عمل إعادة تحميل صفحة فورية لمنع الحلقات، فقط إظهار التوست
             return;
         }
 
@@ -160,12 +163,14 @@ function updateGlobalStats(items) {
     document.getElementById('stat-offline').innerText = offline;
 
     ['stat-total', 'stat-active', 'stat-online', 'stat-offline'].forEach(id => {
-        document.getElementById(id).classList.remove('animate-pulse');
+        const el = document.getElementById(id);
+        if(el) el.classList.remove('animate-pulse');
     });
 }
 
 function renderTableRows(items) {
     const tbody = document.getElementById('subscribers-table-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
     if (items.length === 0) {
@@ -319,22 +324,27 @@ async function loadAgents() {
         const list = document.getElementById('agents-list');
         const select = document.getElementById('select-agent-assign');
         
-        document.getElementById('stat-agents')?.innerText = agents.length || 0;
+        const statAgents = document.getElementById('stat-agents');
+        if(statAgents) statAgents.innerText = agents.length || 0;
         
         if (!Array.isArray(agents) || agents.length === 0) {
-            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد وكلاء حالياً</p>`;
-            select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>';
+            if(list) list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد وكلاء حالياً</p>`;
+            if(select) select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>';
             return;
         }
 
-        list.innerHTML = agents.map(a => `
-            <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700">
-                <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">${a.username}</p></div>
-                <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
-            </div>
-        `).join('');
+        if(list) {
+            list.innerHTML = agents.map(a => `
+                <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700">
+                    <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">${a.username}</p></div>
+                    <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
+                </div>
+            `).join('');
+        }
 
-        select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>' + agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+        if(select) {
+            select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>' + agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+        }
     } catch (e) { 
         console.error("خطأ جلب الوكلاء:", e); 
     }
@@ -346,6 +356,8 @@ async function loadTickets() {
         const data = await res.json();
         const list = document.getElementById('tickets-list');
         const items = data.items || [];
+
+        if (!list) return;
 
         if (items.length === 0) {
             list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد تذاكر حالية</p>`;
@@ -364,30 +376,36 @@ async function loadTickets() {
     } catch (e) { console.error(e); }
 }
 
-document.getElementById('add-agent-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const res = await fetch('/api/admin/sub-agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name: document.getElementById('agent-name').value,
-            username: document.getElementById('agent-username').value,
-            password: document.getElementById('agent-password').value
-        })
+const addAgentForm = document.getElementById('add-agent-form');
+if(addAgentForm) {
+    addAgentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const res = await fetch('/api/admin/sub-agents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: document.getElementById('agent-name').value,
+                username: document.getElementById('agent-username').value,
+                password: document.getElementById('agent-password').value
+            })
+        });
+        if (res.ok) {
+            addAgentForm.reset();
+            loadAgents();
+            showToast("تم إنشاء الوكيل الثانوي بنجاح!");
+        } else {
+            const err = await res.json();
+            showToast(err.error || "فشل إضافة الوكيل", "error");
+        }
     });
-    if (res.ok) {
-        document.getElementById('add-agent-form').reset();
-        loadAgents();
-        showToast("تم إنشاء الوكيل الثانوي بنجاح!");
-    } else {
-        const err = await res.json();
-        showToast(err.error || "فشل إضافة الوكيل", "error");
-    }
-});
+}
 
-document.getElementById('select-all')?.addEventListener('change', (e) => {
-    document.querySelectorAll('.sub-check').forEach(cb => cb.checked = e.target.checked);
-});
+const selectAllCheckbox = document.getElementById('select-all');
+if(selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', (e) => {
+        document.querySelectorAll('.sub-check').forEach(cb => cb.checked = e.target.checked);
+    });
+}
 
 async function assignSelected() {
     const agentId = document.getElementById('select-agent-assign').value;
