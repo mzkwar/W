@@ -8,6 +8,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style> 
         body { font-family: 'Tajawal', sans-serif; } 
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.4; transform: scale(0.98); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+        .fiber-loader-img {
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
     </style>
     <script>
         if (localStorage.getItem('ftth_token')) {
@@ -17,10 +24,16 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen pb-24">
 
-    <!-- شاشة التحميل الشاملة (Global Loader) -->
-    <div id="global-loader" class="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center space-y-4">
-        <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="text-sm font-bold text-white tracking-wider">جاري جلب البيانات من المنظومة...</p>
+    <!-- شاشة التحميل الاحترافية بالشعار وتأثير الألياف الضوئية -->
+    <div id="global-loader" class="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center space-y-6 p-4">
+        <div class="relative flex items-center justify-center">
+            <div class="absolute w-28 h-28 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+            <img src="images.jpg" alt="الشعار" class="w-20 h-20 object-contain rounded-2xl fiber-loader-img shadow-2xl">
+        </div>
+        <div class="text-center space-y-2">
+            <p class="text-sm font-bold text-white tracking-wider">جاري جلب البيانات من المنظومة...</p>
+            <p class="text-[10px] text-slate-400">المشروع الوطني للإنترنت</p>
+        </div>
     </div>
 
     <!-- حاوية الإشعارات الداخلية -->
@@ -58,9 +71,9 @@
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات -->
-        <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
+        <!-- كروت الإحصائيات (تم تحديث التسميات وإضافة ينتهي قريباً) -->
+        <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div onclick="filterOnlineStatus('all')" class="bg-slate-800 p-3 rounded-xl border border-slate-700/60 cursor-pointer hover:border-indigo-500 transition">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
                 <p id="stat-total" class="text-xl font-bold text-white mt-0.5">0</p>
             </div>
@@ -69,12 +82,16 @@
                 <p id="stat-active" class="text-xl font-bold text-emerald-400 mt-0.5">0</p>
             </div>
             <div onclick="filterOnlineStatus('online')" class="bg-slate-800 p-3 rounded-xl border border-slate-700/60 cursor-pointer hover:border-blue-500 transition">
-                <p class="text-[10px] text-slate-400">المتصلين الآن (اضغط للعرض)</p>
+                <p class="text-[10px] text-slate-400">المتصلين الآن</p>
                 <p id="stat-online" class="text-xl font-bold text-blue-400 mt-0.5">0</p>
             </div>
             <div onclick="filterOnlineStatus('offline')" class="bg-slate-800 p-3 rounded-xl border border-slate-700/60 cursor-pointer hover:border-slate-400 transition">
-                <p class="text-[10px] text-slate-400">غير المتصلين (API Sessions)</p>
+                <p class="text-[10px] text-slate-400">غير المتصلين</p>
                 <p id="stat-offline" class="text-xl font-bold text-slate-400 mt-0.5">0</p>
+            </div>
+            <div onclick="filterExpiringSoon()" class="bg-slate-800 p-3 rounded-xl border border-amber-500/30 cursor-pointer hover:border-amber-500 transition">
+                <p class="text-[10px] text-amber-400">ينتهي قريباً</p>
+                <p id="stat-expiring" class="text-xl font-bold text-amber-400 mt-0.5">0</p>
             </div>
         </div>
 
@@ -138,7 +155,7 @@
             <section id="tab-tickets" class="tab-content hidden space-y-4">
                 <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
                     <div class="flex justify-between items-center border-b border-slate-700 pb-2">
-                        <h2 class="text-sm font-bold text-white">تذاكر الدعم الفني (لدي وللفريق)</h2>
+                        <h2 class="text-sm font-bold text-white">تذاكر الدعم الفني</h2>
                         <button onclick="loadTickets()" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-xs font-bold">تحديث التذاكر</button>
                     </div>
                     <div id="tickets-list" class="space-y-3"></div>
@@ -154,25 +171,19 @@
             </section>
         </main>
 
-        <!-- بطاقة تفاصيل المشترك المنبثقة -->
-        <div id="subscriber-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl">
-                <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-sm">👤</div>
-                        <div>
-                            <h3 id="modal-sub-name" class="text-sm font-bold text-white">تفاصيل المشترك</h3>
-                            <p id="modal-sub-user" class="text-[10px] text-slate-400 font-mono">username</p>
-                        </div>
+        <!-- صفحة تفاصيل المشترك المنفصلة (Full View بدلاً من Modal فوق الموقع) -->
+        <div id="subscriber-detail-page" class="hidden min-h-screen bg-slate-900 absolute inset-0 z-50 p-4 flex flex-col space-y-4">
+            <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
+                <div class="flex items-center gap-3">
+                    <button onclick="closeSubscriberDetail()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">← العودة للرئيسية</button>
+                    <div>
+                        <h3 id="detail-sub-name" class="text-sm font-bold text-white">تفاصيل المشترك</h3>
+                        <p id="detail-sub-user" class="text-[10px] text-slate-400 font-mono">username</p>
                     </div>
-                    <button onclick="closeModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
                 </div>
-                
-                <div id="modal-content-card" class="space-y-2.5 text-xs max-h-[60vh] overflow-y-auto pr-1">
-                    <p class="text-center text-slate-400 py-4">جاري تحميل ملف العميل الشامل وبيانات الـ ONT...</p>
-                </div>
-
-                <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg">إغلاق البطاقة</button>
+            </div>
+            <div id="detail-content-card" class="space-y-3 flex-1 overflow-y-auto pb-12">
+                <!-- المحتوى يولد برمجياً -->
             </div>
         </div>
 
@@ -181,10 +192,10 @@
             <button onclick="switchTab('subscribers', 'المشتركين')" class="nav-btn text-indigo-400 flex flex-col items-center gap-1 text-xs font-bold" id="btn-subscribers">
                 <span>المشتركين</span>
             </button>
-            <button onclick="switchTab('agents', 'الوكلاء')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs" id="btn-agents">
+            <button onclick="switchTab('agents', 'وكلاء النظام')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs" id="btn-agents">
                 <span>الوكلاء</span>
             </button>
-            <button onclick="switchTab('tickets', 'التذاكر')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs" id="btn-tickets">
+            <button onclick="switchTab('tickets', 'التذاكر الفنية')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs" id="btn-tickets">
                 <span>التذاكر</span>
             </button>
             <button onclick="switchTab('tasks', 'المهام')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs" id="btn-tasks">
