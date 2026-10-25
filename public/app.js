@@ -1,7 +1,18 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
+let subscribersPowerCache = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
+    // تفعيل الوضع الافتراضي (الفاتح) أو المحفوظ
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+    } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+    }
+
     if (authToken) {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('dashboard-screen').classList.remove('hidden');
@@ -26,6 +37,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+function toggleTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    if (isDark) {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        localStorage.setItem('theme', 'light');
+    } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) {
@@ -37,10 +61,7 @@ function showToast(message, type = 'info') {
     toast.innerText = message;
     container.appendChild(toast);
     
-    setTimeout(() => {
-        toast.classList.remove('translate-y-[-20px]', 'opacity-0');
-    }, 10);
-
+    setTimeout(() => toast.classList.remove('translate-y-[-20px]', 'opacity-0'), 10);
     setTimeout(() => {
         toast.classList.add('translate-y-[-20px]', 'opacity-0');
         setTimeout(() => toast.remove(), 300);
@@ -60,9 +81,7 @@ function getAccountIdFromToken(token) {
     try {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
         const payload = JSON.parse(jsonPayload);
         return payload.AccountId || payload.sub || '16909';
     } catch (e) {
@@ -110,10 +129,10 @@ function switchTab(tabName, title) {
     document.getElementById('header-title').innerText = title;
 
     document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('text-indigo-400', 'font-bold');
-        btn.classList.add('text-slate-400');
+        btn.classList.remove('text-indigo-600', 'dark:text-indigo-400', 'font-bold');
+        btn.classList.add('text-slate-500', 'dark:text-slate-400');
     });
-    document.getElementById(`btn-${tabName}`).classList.add('text-indigo-400', 'font-bold');
+    document.getElementById(`btn-${tabName}`).classList.add('text-indigo-600', 'dark:text-indigo-400', 'font-bold');
 }
 
 function extractValue(field) {
@@ -130,10 +149,7 @@ function cleanUsername(userStr) {
 }
 
 function getSubscriptionType(sub) {
-    let typeVal = '';
-    if (sub.self) {
-        typeVal = extractValue(sub.self);
-    }
+    let typeVal = sub.self ? extractValue(sub.self) : '';
     if ((!typeVal || typeVal.toUpperCase() === 'SELF') && sub.package) {
         typeVal = extractValue(sub.package);
     }
@@ -145,21 +161,11 @@ function formatDateClean(isoString) {
     try {
         const date = new Date(isoString);
         const now = new Date();
-        const diffTime = date - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+        const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
         const datePart = date.toISOString().split('T')[0];
         const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
         
-        let statusText = '';
-        if (diffDays > 0) {
-            statusText = `[ ينتهي بعد ${diffDays} يوم ]`;
-        } else if (diffDays === 0) {
-            statusText = `[ ينتهي اليوم ]`;
-        } else {
-            statusText = `[ منذ ${Math.abs(diffDays)} يوم ]`;
-        }
-        
+        let statusText = diffDays > 0 ? `[ ينتهي بعد ${diffDays} يوم ]` : diffDays === 0 ? `[ ينتهي اليوم ]` : `[ منذ ${Math.abs(diffDays)} يوم ]`;
         return `${datePart} ${timePart} ${statusText}`;
     } catch (e) {
         return isoString;
@@ -178,64 +184,6 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// عرض معلومات الـ ONT بدقة متناهية
-function formatOntData(ontData, subDeviceDetails) {
-    const model = ontData?.model || ontData || {};
-    let statusText = 'Up';
-    if (model.status) {
-        if (typeof model.status === 'object') {
-            statusText = model.status.displayValue || model.status.name || 'Up';
-        } else {
-            statusText = String(model.status);
-        }
-    }
-    
-    let rxPowerVal = model.rxPower !== undefined && model.rxPower !== null ? model.rxPower : 'غير متوفرة';
-    let serialNum = subDeviceDetails?.serial || model.serialNumber || model.sn || 'غير معروف';
-    let fdtVal = extractValue(subDeviceDetails?.fdt) || 'غير متاح';
-    let fatVal = extractValue(subDeviceDetails?.fat) || 'غير متاح';
-
-    let html = `
-        <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/50 space-y-2 text-xs">
-            <div class="flex justify-between items-center">
-                <span class="text-indigo-300 font-medium">الرقم التسلسلي (SN ONT):</span>
-                <span class="font-bold text-white font-mono dir-ltr">${serialNum}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-indigo-300 font-medium">الحالة:</span>
-                <span class="font-bold text-emerald-400">${statusText}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-indigo-300 font-medium">البور (Rx Power):</span>
-                <span class="font-bold text-white dir-ltr">${rxPowerVal} dBm</span>
-            </div>
-            <div class="flex justify-between items-center pt-1 border-t border-indigo-900/40">
-                <span class="text-slate-400">FDT / FAT:</span>
-                <span class="text-white">${fdtVal} / ${fatVal}</span>
-            </div>
-        </div>
-    `;
-    return html;
-}
-
-function formatSessionDetails(sub) {
-    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 flex justify-between items-center text-xs"><span class="text-slate-400">تاريخ البدء:</span><span class="text-white font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
-    
-    if (!sub.activeSession) return startedHtml + `<p class="text-slate-400 text-xs">لا توجد جلسة اتصال نشطة حالياً</p>`;
-
-    const session = sub.activeSession;
-    return `
-        ${startedHtml}
-        <div class="p-3 bg-blue-950/30 rounded-xl border border-blue-800/40 space-y-2 text-xs">
-            <div class="text-blue-400 font-bold border-b border-blue-900/50 pb-1">تفاصيل جلسة الاتصال النشطة</div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">وقت البدء:</span><span class="text-white">${formatDateClean(session.startedAt)}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">مدة الاتصال:</span><span class="text-white font-semibold">${formatDuration(session.sessionTimeInSeconds)}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">عنوان IP:</span><span class="text-white font-mono dir-ltr">${session.ipAddress || 'N/A'}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">عنوان MAC:</span><span class="text-white font-mono dir-ltr">${session.macAddress || 'N/A'}</span></div>
-        </div>
-    `;
-}
-
 async function loadWalletBalance() {
     const badge = document.getElementById('wallet-badge');
     if (!badge) return;
@@ -243,21 +191,13 @@ async function loadWalletBalance() {
     try {
         const cleanToken = authToken.replace('Bearer ', '');
         const accountId = getAccountIdFromToken(cleanToken);
-
         const res = await fetch(`/api/ftth/wallet/${accountId}`, { headers: { 'Authorization': authToken } });
         if (handleAuthError(res)) return;
 
         if (res.ok) {
             const walletData = await res.json();
-            let balance = 0;
-            if (walletData.model && typeof walletData.model.balance === 'number') {
-                balance = walletData.model.balance;
-            } else if (typeof walletData.balance === 'number') {
-                balance = walletData.balance;
-            } else if (typeof walletData === 'number') {
-                balance = walletData;
-            }
-            badge.innerText = `الرصيد: ${balance.toLocaleString()} دينار عراقي`;
+            let balance = walletData.model?.balance ?? walletData.balance ?? walletData ?? 0;
+            badge.innerText = `الرصيد: ${Number(balance).toLocaleString()} دينار`;
         } else {
             badge.innerText = `الرصيد: متاح`;
         }
@@ -268,11 +208,8 @@ async function loadWalletBalance() {
 
 async function loadSessions() {
     try {
-        const res = await fetch('/api/ftth/sessions', { headers: { 'Authorization': authToken } });
-        handleAuthError(res);
-    } catch (e) {
-        console.error("خطأ في جلب الجلسات", e);
-    }
+        await fetch('/api/ftth/sessions', { headers: { 'Authorization': authToken } });
+    } catch (e) { console.error(e); }
 }
 
 async function loadSubscribersFast() {
@@ -286,9 +223,7 @@ async function loadSubscribersFast() {
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
     } catch (err) {
-        console.error("خطأ في جلب البيانات:", err);
-        const tbody = document.getElementById('subscribers-table-body');
-        if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+        console.error(err);
     }
 }
 
@@ -296,43 +231,29 @@ function updateGlobalStats(items) {
     let total = items.length;
     let active = 0;
     let online = 0;
-    let offline = 0;
     let expiringCount = 0;
-
     const now = new Date();
+
     items.forEach(sub => {
         const statusVal = extractValue(sub.status);
-        const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
-
-        if (isActive) active++;
-
-        const isOnline = Boolean(sub.hasActiveSession);
-        if (isOnline) online++;
-        else offline++;
+        if (sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال') active++;
+        if (Boolean(sub.hasActiveSession)) online++;
 
         const expDate = new Date(sub.expires || sub.expirationDate);
         const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
-        if (diffDays >= 0 && diffDays <= 7) {
-            expiringCount++;
-        }
+        if (diffDays >= 0 && diffDays <= 7) expiringCount++;
     });
 
     document.getElementById('stat-total').innerText = total;
-    document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-online').innerText = online;
-    document.getElementById('stat-offline').innerText = offline;
+    document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-expiring').innerText = expiringCount;
 }
 
 function filterOnlineStatus(mode) {
     if (mode === 'online') {
-        const filtered = cachedSubscribers.filter(s => Boolean(s.hasActiveSession));
-        renderTableRows(filtered);
+        renderTableRows(cachedSubscribers.filter(s => Boolean(s.hasActiveSession)));
         showToast("عرض المشتركين المتصلين الآن");
-    } else if (mode === 'offline') {
-        const filtered = cachedSubscribers.filter(s => !Boolean(s.hasActiveSession));
-        renderTableRows(filtered);
-        showToast("عرض المشتركين غير المتصلين");
     } else {
         renderTableRows(cachedSubscribers);
         showToast("عرض جميع المشتركين");
@@ -342,26 +263,11 @@ function filterOnlineStatus(mode) {
 function filterExpiringSoon() {
     const now = new Date();
     const filtered = cachedSubscribers.filter(sub => {
-        const expDate = new Date(sub.expires || sub.expirationDate);
-        const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
+        const diffDays = Math.ceil((new Date(sub.expires || sub.expirationDate) - now) / (1000 * 60 * 60 * 24));
         return diffDays >= 0 && diffDays <= 7;
     });
     renderTableRows(filtered);
     showToast(`عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام (${filtered.length})`);
-}
-
-function filterByActivationDate() {
-    const val = document.getElementById('filter-activation-date').value;
-    if (!val) {
-        renderTableRows(cachedSubscribers);
-        return;
-    }
-    const filtered = cachedSubscribers.filter(sub => {
-        const started = sub.startedAt || sub.createdAt || sub.activationDate || '';
-        return started.startsWith(val);
-    });
-    renderTableRows(filtered);
-    showToast(`تم الفرز حسب تاريخ التفعيل: ${val}`);
 }
 
 function renderTableRows(items) {
@@ -370,38 +276,36 @@ function renderTableRows(items) {
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">لا توجد نتائج مطابقة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">لا توجد نتائج مطابقة</td></tr>`;
         return;
     }
 
     items.forEach(sub => {
         const realCustomerName = extractValue(sub.customer) || extractValue(sub.subscriber) || 'غير محدد';
         const username = cleanUsername(sub.username) || cleanUsername(sub.id) || 'N/A';
-        const statusVal = extractValue(sub.status);
-        const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
+        const isActive = sub.isActive || extractValue(sub.status).toLowerCase() === 'active';
         const isOnline = Boolean(sub.hasActiveSession);
         const planType = getSubscriptionType(sub);
-        
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
 
         tbody.innerHTML += `
-            <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-700/40 transition cursor-pointer">
+            <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition cursor-pointer">
                 <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
                 <td class="p-3">
-                    <span class="font-bold text-indigo-400 block">${realCustomerName}</span>
-                    <span class="text-[10px] text-slate-400 font-mono">${username}</span>
+                    <span class="font-bold text-indigo-600 dark:text-indigo-400 block">${realCustomerName}</span>
+                    <span class="text-[10px] text-slate-500 font-mono">${username}</span>
                 </td>
                 <td class="p-3">
-                    <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+                    <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}">
                         ${isActive ? 'فعال' : 'منتهي'}
                     </span>
                 </td>
                 <td class="p-3">
-                    <span class="px-2 py-0.5 rounded text-[10px] ${isOnline ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-slate-400'}">
+                    <span class="px-2 py-0.5 rounded text-[10px] ${isOnline ? 'bg-blue-500/10 text-blue-500' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}">
                         ${isOnline ? 'متصل' : 'غير متصل'}
                     </span>
                 </td>
-                <td class="p-3 text-slate-300 font-semibold">${planType}</td>
+                <td class="p-3 font-semibold">${planType}</td>
             </tr>
         `;
     });
@@ -413,15 +317,70 @@ function filterSubscribers() {
         renderTableRows(cachedSubscribers);
         return;
     }
-    const filtered = cachedSubscribers.filter(sub => {
-        const realCustomerName = extractValue(sub.customer).toLowerCase();
-        const username = cleanUsername(sub.username || sub.id).toLowerCase();
-        return realCustomerName.includes(query) || username.includes(query);
-    });
-    renderTableRows(filtered);
+    renderTableRows(cachedSubscribers.filter(sub => extractValue(sub.customer).toLowerCase().includes(query) || cleanUsername(sub.username || sub.id).toLowerCase().includes(query)));
 }
 
-// عرض ملف العميل الشامل
+// دالة جلب وترتيب البورات (من الأعلى إلى الأقل، مع مراعاة القيم السالبة)
+async function renderPowerRankingModal() {
+    const modal = document.getElementById('power-ranking-modal');
+    const listContainer = document.getElementById('power-ranking-list');
+    modal.classList.remove('hidden');
+    listContainer.innerHTML = `<p class="text-center text-slate-400 py-6 animate-pulse">جاري فحص وجلب إشارات البور للمشتركين...</p>`;
+
+    let powerDataList = [];
+    for (let sub of cachedSubscribers) {
+        const username = cleanUsername(sub.username || sub.id);
+        if (!subscribersPowerCache[username]) {
+            try {
+                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
+                if (res.ok) {
+                    const data = await res.json();
+                    const rx = data?.model?.rxPower !== undefined ? data.model.rxPower : (data?.rxPower !== undefined ? data.rxPower : null);
+                    subscribersPowerCache[username] = rx;
+                }
+            } catch (e) { subscribersPowerCache[username] = null; }
+        }
+        powerDataList.push({
+            name: extractValue(sub.customer) || 'غير محدد',
+            username: username,
+            rxPower: subscribersPowerCache[username],
+            customerId: sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id
+        });
+    }
+
+    // تصفية وترتيب البورات (الأعلى بالسالب تعني الأقرب للصفر، مثلاً -15 أعلى من -25)
+    const validPowerList = powerDataList.filter(item => item.rxPower !== null && item.rxPower !== undefined);
+    validPowerList.sort((a, b) => Number(b.rxPower) - Number(a.rxPower));
+
+    if (validPowerList.length === 0) {
+        listContainer.innerHTML = `<p class="text-center text-slate-500 py-6">لا توجد بيانات بور متاحة حالياً</p>`;
+        return;
+    }
+
+    listContainer.innerHTML = validPowerList.map((item, index) => {
+        let powerColor = 'text-emerald-500';
+        if (item.rxPower < -27) powerColor = 'text-rose-500';
+        else if (item.rxPower < -23) powerColor = 'text-amber-500';
+
+        return `
+            <div onclick="closePowerRankingModal(); openSubscriberDetailPage('${item.username}', '${item.customerId}')" class="p-3 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center cursor-pointer hover:border-cyan-500 transition text-xs">
+                <div>
+                    <span class="font-bold text-indigo-600 dark:text-indigo-400">#${index + 1} - ${item.name}</span>
+                    <span class="text-[10px] text-slate-500 block font-mono">${item.username}</span>
+                </div>
+                <div class="text-left font-mono font-bold ${powerColor} dir-ltr">
+                    ${item.rxPower} dBm
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function closePowerRankingModal() {
+    document.getElementById('power-ranking-modal').classList.add('hidden');
+}
+
+// فتح ملف المشترك بالترتيب المطلوب: (1) البيانات الشخصية والموقع ⬅️ (2) الـ ONT ⬅️ (3) التفاصيل الأخرى
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -446,23 +405,15 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
             fetch(`/api/ftth/customer/${customerId}`, { headers: { 'Authorization': authToken } }),
             fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } })
         ]);
-
         if (custRes.ok) customerData = await custRes.json();
         if (ontRes.ok) ontData = await ontRes.json();
-    } catch (e) {
-        console.error("خطأ في جلب التفاصيل", e);
-    }
+    } catch (e) { console.error(e); }
 
     container.innerHTML = '';
-
     const customerSubs = customerData?.customerSubscriptions || [];
     const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
 
-    container.innerHTML += formatSessionDetails(matchedSub);
-
-    container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT واختبار الإشارة</div>`;
-    container.innerHTML += formatOntData(ontData, matchedSub.deviceDetails);
-
+    // 1. القسم الأول: البيانات الشخصية والموقع
     const custModel = customerData?.customer || {};
     const primaryContact = custModel.primaryContact || {};
     const addresses = custModel.addresses || [];
@@ -474,68 +425,75 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     let lng = gps.longitude || sub.longitude;
     let addressDisplay = primaryAddress.displayValue || 'العنوان غير متوفر';
 
-    let contactMapHtml = `
-        <div class="p-3 bg-slate-800 rounded-xl border border-slate-700/60 space-y-2 text-xs">
-            <div class="text-amber-400 font-bold border-b border-slate-700 pb-1">معلومات الاتصال والموقع الجغرافي</div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">رقم الهاتف:</span><a href="tel:${phoneNum}" class="text-emerald-400 font-bold dir-ltr">${phoneNum}</a></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">العنوان:</span><span class="text-white">${addressDisplay}</span></div>
+    let personalLocationHtml = `
+        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 text-xs">
+            <div class="text-amber-500 font-bold border-b border-slate-200 dark:border-slate-700 pb-2">1. البيانات الشخصية والموقع الجغرافي</div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">رقم الهاتف:</span><a href="tel:${phoneNum}" class="text-emerald-500 font-bold dir-ltr">${phoneNum}</a></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">العنوان:</span><span class="font-medium">${addressDisplay}</span></div>
     `;
     if (lat && lng) {
-        contactMapHtml += `
-            <div class="flex justify-between items-center"><span class="text-slate-400">الإحداثيات:</span><span class="text-white font-mono dir-ltr">${lat}, ${lng}</span></div>
-            <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="block w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg font-bold mt-2">فتح الموقع على خريطة جوجل (Google Maps)</a>
+        personalLocationHtml += `
+            <div class="flex justify-between items-center"><span class="text-slate-500">الإحداثيات:</span><span class="font-mono dir-ltr">${lat}, ${lng}</span></div>
+            <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="block w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold mt-2">📍 فتح الموقع على خريطة جوجل (Google Maps)</a>
         `;
     } else {
-        contactMapHtml += `<div class="text-slate-500 text-center py-1">الإحداثيات الجغرافية غير متوفرة لهذا المشترك</div>`;
+        personalLocationHtml += `<div class="text-slate-400 text-center py-1">الإحداثيات الجغرافية غير متوفرة</div>`;
     }
-    contactMapHtml += `</div>`;
-    container.innerHTML += contactMapHtml;
+    personalLocationHtml += `</div>`;
+    container.innerHTML += personalLocationHtml;
 
-    const excludedFields = [
-        'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
-        'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
-        '_isOnline', 'commitmentPeriod', 'activeSession', 'startedAt', 'phone', 'mobile', 'deviceDetails'
-    ];
+    // 2. القسم الثاني: معلومات جهاز الـ ONT
+    const model = ontData?.model || ontData || {};
+    let statusText = model.status?.displayValue || model.status || 'Up';
+    let rxPowerVal = model.rxPower !== undefined && model.rxPower !== null ? model.rxPower : 'غير متوفرة';
+    let serialNum = matchedSub.deviceDetails?.serial || model.serialNumber || model.sn || 'غير معروف';
+    let fdtVal = extractValue(matchedSub.deviceDetails?.fdt) || 'غير متاح';
+    let fatVal = extractValue(matchedSub.deviceDetails?.fat) || 'غير متاح';
 
-    const keyLabels = {
-        'customer': 'اسم المشترك',
-        'username': 'اسم المستخدم',
-        'partner': 'الوكيل',
-        'status': 'حالة الاشتراك',
-        'expires': 'تاريخ الانتهاء',
-        'expirationDate': 'تاريخ الانتهاء',
-        'package': 'الباقة',
-        'self': 'نوع الإشتراك',
-        'salesType': 'نوع الإشتراك',
-        'autoRenew': 'التجديد التلقائي',
-        'hasActiveSession': 'حالة الاتصال'
-    };
+    container.innerHTML += `
+        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-2 text-xs">
+            <div class="text-indigo-600 dark:text-indigo-400 font-bold border-b border-slate-200 dark:border-slate-700 pb-2">2. معلومات جهاز الـ ONT واختبار الإشارة</div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">الرقم التسلسلي (SN):</span><span class="font-bold font-mono dir-ltr">${serialNum}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">الحالة:</span><span class="font-bold text-emerald-500">${statusText}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">البور (Rx Power):</span><span class="font-bold font-mono dir-ltr">${rxPowerVal} dBm</span></div>
+            <div class="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-slate-700"><span class="text-slate-500">FDT / FAT:</span><span>${fdtVal} / ${fatVal}</span></div>
+        </div>
+    `;
 
-    let baseInfoHtml = `<div class="space-y-2 pt-2"><div class="text-emerald-400 font-bold pb-1 border-b border-slate-700">بيانات الاشتراك الأساسية</div>`;
+    // 3. القسم الثالث: التفاصيل الأخرى (الجلسة والاشتراك)
+    let sessionHtml = '';
+    if (matchedSub.activeSession) {
+        const session = matchedSub.activeSession;
+        sessionHtml = `
+            <div class="p-3 bg-blue-500/5 rounded-xl border border-blue-500/20 space-y-2 text-xs">
+                <div class="text-blue-500 font-bold border-b border-blue-500/20 pb-1">تفاصيل جلسة الاتصال النشطة</div>
+                <div class="flex justify-between items-center"><span class="text-slate-500">وقت البدء:</span><span>${formatDateClean(session.startedAt)}</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-500">مدة الاتصال:</span><span class="font-semibold">${formatDuration(session.sessionTimeInSeconds)}</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-500">عنوان IP:</span><span class="font-mono dir-ltr">${session.ipAddress || 'N/A'}</span></div>
+            </div>
+        `;
+    }
+
+    let baseInfoHtml = `<div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 text-xs">
+        <div class="text-cyan-600 dark:text-cyan-400 font-bold border-b border-slate-200 dark:border-slate-700 pb-2">3. التفاصيل الأخرى للاشتراك</div>
+        ${sessionHtml}`;
+
+    const excludedFields = ['services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 'commitmentPeriod', 'activeSession', 'startedAt', 'phone', 'mobile', 'deviceDetails'];
+    const keyLabels = { 'customer': 'اسم المشترك', 'username': 'اسم المستخدم', 'partner': 'الوكيل', 'status': 'حالة الاشتراك', 'expires': 'تاريخ الانتهاء', 'expirationDate': 'تاريخ الانتهاء', 'package': 'الباقة', 'self': 'نوع الإشتراك', 'salesType': 'نوع الإشتراك', 'autoRenew': 'التجديد التلقائي', 'hasActiveSession': 'حالة الاتصال' };
+
     for (const [key, value] of Object.entries(matchedSub)) {
         if (excludedFields.includes(key)) continue;
-
-        const labelName = keyLabels[key] || key;
         let displayVal = extractValue(value);
-
-        if (key === 'expires' || key === 'expirationDate') {
-            displayVal = formatDateClean(value);
-        } else if (key === 'status') {
-            displayVal = (displayVal.toLowerCase() === 'active' || displayVal === 'فعال') ? 'فعال' : 'منتهي الصلاحية';
-        } else if (key === 'autoRenew') {
-            displayVal = value ? 'مفعل' : 'غير مفعل';
-        } else if (key === 'hasActiveSession') {
-            displayVal = value ? 'متصل' : 'غير متصل';
-        } else if (key === 'username') {
-            displayVal = cleanUsername(displayVal);
-        } else if (key === 'salesType' || key === 'package' || key === 'self') {
-            displayVal = getSubscriptionType(matchedSub);
-        }
+        if (key === 'expires' || key === 'expirationDate') displayVal = formatDateClean(value);
+        else if (key === 'status') displayVal = displayVal.toLowerCase() === 'active' || displayVal === 'فعال' ? 'فعال' : 'منتهي الصلاحية';
+        else if (key === 'autoRenew') displayVal = value ? 'مفعل' : 'غير مفعل';
+        else if (key === 'hasActiveSession') displayVal = value ? 'متصل' : 'غير متصل';
+        else if (key === 'username') displayVal = cleanUsername(displayVal);
 
         baseInfoHtml += `
-            <div class="flex justify-between items-center p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 text-xs">
-                <span class="text-slate-400 font-medium">${labelName}</span>
-                <span class="text-white font-semibold text-left dir-ltr break-all max-w-[200px]">${displayVal}</span>
+            <div class="flex justify-between items-center p-2.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                <span class="text-slate-500 font-medium">${keyLabels[key] || key}</span>
+                <span class="font-semibold text-left dir-ltr break-all max-w-[200px]">${displayVal}</span>
             </div>
         `;
     }
@@ -551,129 +509,81 @@ async function loadAgents() {
     try {
         const res = await fetch('/api/admin/sub-agents');
         if (handleAuthError(res)) return;
-
         const agents = await res.json();
         const list = document.getElementById('agents-list');
         const select = document.getElementById('select-agent-assign');
         
         if (!Array.isArray(agents) || agents.length === 0) {
-            if(list) list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد وكلاء حالياً</p>`;
+            if(list) list.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">لا توجد وكلاء حالياً</p>';
             if(select) select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>';
             return;
         }
 
         if(list) {
             list.innerHTML = agents.map(a => `
-                <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700">
-                    <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">${a.username}</p></div>
-                    <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
+                <div class="flex justify-between items-center p-2.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <div><p class="text-xs font-bold">${a.name}</p><p class="text-[10px] text-slate-500">${a.username}</p></div>
+                    <span class="text-[10px] bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
                 </div>
             `).join('');
         }
-
         if(select) {
             select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>' + agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
         }
-    } catch (e) { 
-        console.error("خطأ جلب الوكلاء:", e); 
-    }
+    } catch (e) { console.error(e); }
 }
 
-// دالة جلب وعرض تذاكر الدعم الفني بناءً على الهيكل الجديد
 async function loadTickets() {
     const list = document.getElementById('tickets-list');
     if (!list) return;
-
-    list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 animate-pulse">جاري جلب تذاكر الدعم الفني...</p>`;
-
+    list.innerHTML = `<p class="text-xs text-slate-500 text-center py-4 animate-pulse">جاري جلب تذاكر الدعم الفني...</p>`;
     try {
         const res = await fetch('/api/ftth/tickets', { headers: { 'Authorization': authToken } });
         if (handleAuthError(res)) return;
-
         const data = await res.json();
         const items = data.items || [];
-
         if (items.length === 0) {
-            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد تذاكر دعم فني حالية</p>`;
+            list.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">لا توجد تذاكر دعم فني حالية</p>`;
             return;
         }
-
-        list.innerHTML = items.map(t => {
-            const ticketDisplayId = t.displayId || t.id || 'N/A';
-            const subject = extractValue(t.self) || 'تذكرة دعم فني';
-            const summary = t.summary || 'بدون تفاصيل';
-            const status = t.status || 'مفتوحة';
-            const customerName = extractValue(t.customer) || 'غير معروف';
-            const zoneName = extractValue(t.zone) || 'N/A';
-            const dateStr = formatDateClean(t.createdAt);
-
-            return `
-                <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-700/80 space-y-2 text-xs">
-                    <div class="flex justify-between items-center">
-                        <span class="font-bold text-indigo-400">تذكرة #${ticketDisplayId} (${subject})</span>
-                        <span class="px-2 py-0.5 rounded ${status === 'Closed' || status === 'Resolved' ? 'bg-slate-800 text-slate-400' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">${status}</span>
-                    </div>
-                    <p class="text-white bg-slate-800 p-2 rounded-lg">${summary}</p>
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800 gap-1">
-                        <span>المشترك: <strong class="text-slate-300">${customerName}</strong> | النطاق: ${zoneName}</span>
-                        <span>التاريخ: ${dateStr}</span>
-                    </div>
+        list.innerHTML = items.map(t => `
+            <div class="p-3.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-indigo-600 dark:text-indigo-400">تذكرة #${t.displayId || t.id} (${extractValue(t.self) || 'دعم'})</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-500">${t.status || 'مفتوحة'}</span>
                 </div>
-            `;
-        }).join('');
-    } catch (e) {
-        list.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">تعذر جلب التذاكر</p>`;
-    }
+                <p class="bg-cardLight dark:bg-cardDark p-2 rounded-lg">${t.summary || 'بدون تفاصيل'}</p>
+            </div>
+        `).join('');
+    } catch (e) { list.innerHTML = `<p class="text-xs text-rose-500 text-center py-4">تعذر جلب التذاكر</p>`; }
 }
 
-// دالة جلب وعرض المهام والطلبات (Onboarding Requests) بناءً على الهيكل الجديد
 async function loadRequestsTasks() {
     const list = document.getElementById('tasks-list');
     if (!list) return;
-
-    list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 animate-pulse">جاري جلب المهام الفنية والطلبات...</p>`;
-
+    list.innerHTML = `<p class="text-xs text-slate-500 text-center py-4 animate-pulse">جاري جلب المهام الفنية والطلبات...</p>`;
     try {
         const res = await fetch('/api/ftth/requests', { headers: { 'Authorization': authToken } });
         if (handleAuthError(res)) return;
-
         const data = await res.json();
         const items = data.items || [];
-
         if (items.length === 0) {
-            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد مهام أو طلبات تنصيب معلقة حالياً</p>`;
+            list.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">لا توجد مهام أو طلبات تنصيب معلقة حالياً</p>`;
             return;
         }
-
-        list.innerHTML = items.map(req => {
-            const customerObj = req.customer || {};
-            const customerName = extractValue(customerObj) || 'غير معروف';
-            const mobile = customerObj.contact?.mobile || 'غير متوفر';
-            const installCode = req.installationCode || 'N/A';
-            const statusVal = extractValue(req.status) || 'In Progress';
-            const zoneName = extractValue(req.zone) || 'N/A';
-            const dateStr = formatDateClean(req.createdAt);
-
-            return `
-                <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-700/80 space-y-2 text-xs">
-                    <div class="flex justify-between items-center">
-                        <span class="font-bold text-amber-400">طلب تنصيب (كود: ${installCode})</span>
-                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">${statusVal}</span>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-800 p-2 rounded-lg text-slate-300">
-                        <div>اسم المشترك: <strong class="text-white">${customerName}</strong></div>
-                        <div>رقم الهاتف: <a href="tel:${mobile}" class="text-emerald-400 font-bold dir-ltr">${mobile}</a></div>
-                        <div>النطاق (Zone): <span class="text-white">${zoneName}</span></div>
-                    </div>
-                    <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800">
-                        <span>تاريخ الإنشاء: ${dateStr}</span>
-                    </div>
+        list.innerHTML = items.map(req => `
+            <div class="p-3.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-amber-500">طلب تنصيب (كود: ${req.installationCode || 'N/A'})</span>
+                    <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500">${extractValue(req.status) || 'In Progress'}</span>
                 </div>
-            `;
-        }).join('');
-    } catch (e) {
-        list.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">تعذر جلب المهام الفنية</p>`;
-    }
+                <div class="bg-cardLight dark:bg-cardDark p-2 rounded-lg space-y-1">
+                    <div>اسم المشترك: <strong class="text-indigo-500">${extractValue(req.customer) || 'غير معروف'}</strong></div>
+                    <div>رقم الهاتف: <a href="tel:${req.customer?.contact?.mobile}" class="text-emerald-500 font-bold dir-ltr">${req.customer?.contact?.mobile || 'غير متوفر'}</a></div>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) { list.innerHTML = `<p class="text-xs text-rose-500 text-center py-4">تعذر جلب المهام الفنية</p>`; }
 }
 
 const addAgentForm = document.getElementById('add-agent-form');
