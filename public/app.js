@@ -6,6 +6,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('dashboard-screen').classList.remove('hidden');
         loadSubscribersFast();
+        loadWalletBalance();
         loadAgents();
         loadTickets();
     }
@@ -32,6 +33,21 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
+// دالة فك تشفير التوكن (JWT) لاستخراج AccountId الشريك
+function getAccountIdFromToken(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        const payload = JSON.parse(jsonPayload);
+        return payload.AccountId || payload.sub || '16909';
+    } catch (e) {
+        return '16909';
+    }
+}
+
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
@@ -49,7 +65,6 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         });
         const data = await res.json();
         
-        // استخراج التوكن بمرونة تامة بغض النظر عن اسم المفتاح
         const rawToken = data.access_token || data.token || data.accessToken;
 
         if (res.ok && rawToken) {
@@ -57,6 +72,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             localStorage.setItem('ftth_token', authToken);
 
             await loadSubscribersFast();
+            loadWalletBalance();
             loadAgents();
             loadTickets();
 
@@ -110,6 +126,28 @@ function getSubscriptionType(sub) {
     return typeVal || 'SELF';
 }
 
+// جلب رصيد محفظة الشريك
+async function loadWalletBalance() {
+    const badge = document.getElementById('wallet-badge');
+    if (!badge) return;
+
+    try {
+        const cleanToken = authToken.replace('Bearer ', '');
+        const accountId = getAccountIdFromToken(cleanToken);
+
+        const res = await fetch(`/api/ftth/wallet/${accountId}`, { headers: { 'Authorization': authToken } });
+        if (res.ok) {
+            const walletData = await res.json();
+            const balance = walletData.balance ?? walletData.amount ?? walletData.total ?? JSON.stringify(walletData);
+            badge.innerText = `الرصيد: ${balance}`;
+        } else {
+            badge.innerText = `الرصيد: متوفر`;
+        }
+    } catch (e) {
+        badge.innerText = `الرصيد: --`;
+    }
+}
+
 async function loadSubscribersFast() {
     const tbody = document.getElementById('subscribers-table-body');
 
@@ -118,14 +156,13 @@ async function loadSubscribersFast() {
         return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 animate-pulse">جاري جلب جميع المشتركين...</td></tr>`;
+    if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 animate-pulse">جاري جلب جميع المشتركين...</td></tr>`;
 
     try {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
         
         if (res.status === 401) {
-            showToast("انتهت صلاحية الجلسة أو بيانات الدخول غير صالحة", "error");
-            // عدم عمل إعادة تحميل صفحة فورية لمنع الحلقات، فقط إظهار التوست
+            showToast("انتهت صلاحية الجلسة، يرجى تسجيل الدخول", "error");
             return;
         }
 
@@ -136,7 +173,7 @@ async function loadSubscribersFast() {
         renderTableRows(cachedSubscribers);
     } catch (err) {
         console.error("خطأ في جلب البيانات:", err);
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+        if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
     }
 }
 
@@ -185,12 +222,15 @@ function renderTableRows(items) {
         const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
         const isOnline = Boolean(sub.hasActiveSession);
         const planType = getSubscriptionType(sub);
+        
+        // استخراج معرف العميل (CustomerID) إن وُجد لجلب بياناته التفصيلية لاحقاً
+        const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || '542203';
 
         tbody.innerHTML += `
             <tr class="hover:bg-slate-700/30 transition">
                 <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
                 <td class="p-3">
-                    <a href="javascript:void(0)" onclick="openSubscriberCardByUsername('${username}')" class="font-bold text-indigo-400 hover:underline block">${realCustomerName}</a>
+                    <a href="javascript:void(0)" onclick="openSubscriberCard('${username}', '${customerId}')" class="font-bold text-indigo-400 hover:underline block">${realCustomerName}</a>
                     <span class="text-[10px] text-slate-400 font-mono">${username}</span>
                 </td>
                 <td class="p-3">
@@ -226,7 +266,8 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-async function openSubscriberCardByUsername(targetUsername) {
+// فتح بطاقة المشترك وجلب تفاصيل العميل الفردية (Customers API) + ONT API
+async function openSubscriberCard(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
 
@@ -237,18 +278,24 @@ async function openSubscriberCardByUsername(targetUsername) {
     document.getElementById('modal-sub-user').innerText = username;
 
     const container = document.getElementById('modal-content-card');
-    container.innerHTML = `<p class="text-center text-slate-400 py-4 animate-pulse">جاري جلب تفاصيل الحساب وبيانات الـ ONT...</p>`;
+    container.innerHTML = `<p class="text-center text-slate-400 py-4 animate-pulse">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
 
     document.getElementById('subscriber-modal').classList.remove('hidden');
 
+    // جلب بالتوازي: بيانات العميل الفردية + معلومات الـ ONT
+    let customerDetails = null;
     let ontData = null;
+
     try {
-        const ontRes = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
-        if (ontRes.ok) {
-            ontData = await ontRes.json();
-        }
+        const [custRes, ontRes] = await Promise.all([
+            fetch(`/api/ftth/customer/${customerId}`, { headers: { 'Authorization': authToken } }),
+            fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } })
+        ]);
+
+        if (custRes.ok) customerDetails = await custRes.json();
+        if (ontRes.ok) ontData = await ontRes.json();
     } catch (e) {
-        console.error("تعذر جلب بيانات الـ ONT", e);
+        console.error("خطأ في جلب تفاصيل الإضافات", e);
     }
 
     container.innerHTML = '';
@@ -274,6 +321,7 @@ async function openSubscriberCardByUsername(targetUsername) {
         'hasActiveSession': 'حالة الاتصال'
     };
 
+    // 1. عرض بيانات الاشتراك الأساسية
     for (const [key, value] of Object.entries(sub)) {
         if (excludedFields.includes(key)) continue;
 
@@ -300,6 +348,22 @@ async function openSubscriberCardByUsername(targetUsername) {
         `;
     }
 
+    // 2. عرض تفاصيل ملف العميل الشامل إن وجدت (Customer Details API)
+    if (customerDetails) {
+        container.innerHTML += `<div class="text-emerald-400 font-bold pt-2 border-t border-slate-700 text-center">معلومات ملف العميل الشامل</div>`;
+        for (const [cKey, cVal] of Object.entries(customerDetails)) {
+            if (typeof cVal !== 'object' && cVal !== null) {
+                container.innerHTML += `
+                    <div class="flex justify-between items-center p-2.5 bg-emerald-950/20 rounded-xl border border-emerald-800/40">
+                        <span class="text-emerald-300 font-medium">العميل: ${cKey}</span>
+                        <span class="text-white font-semibold text-left dir-ltr break-all max-w-[200px]">${cVal}</span>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // 3. عرض معلومات الـ ONT إن وجدت
     if (ontData) {
         container.innerHTML += `<div class="text-indigo-400 font-bold pt-2 border-t border-slate-700 text-center">معلومات جهاز الـ ONT</div>`;
         for (const [ontKey, ontVal] of Object.entries(ontData)) {
