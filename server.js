@@ -1,6 +1,5 @@
 const express = require('express');
 const axios = require('axios');
-const https = require('https');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const path = require('path');
@@ -9,10 +8,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
-
-const apiClient = axios.create({
-    httpsAgent: new https.Agent({ rejectUnauthorized: false })
-});
 
 const dbPath = path.resolve(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -46,7 +41,7 @@ app.post('/api/ftth/login', async (req, res) => {
         params.append('username', username);
         params.append('password', password);
 
-        const response = await apiClient.post('https://admin.ftth.iq/api/auth/Contractor/token', params, {
+        const response = await axios.post('https://admin.ftth.iq/api/auth/Contractor/token', params, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Accept': 'application/json'
@@ -64,7 +59,7 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await apiClient.get('https://admin.ftth.iq/api/subscriptions?hierarchyLevel=0', {
+        const response = await axios.get('https://admin.ftth.iq/api/subscriptions?hierarchyLevel=0', {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
@@ -79,19 +74,12 @@ app.get('/api/ftth/ont', async (req, res) => {
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await apiClient.get(`https://admin.ftth.iq/api/subscriptions/device/ont?username=${username}`, {
+        const response = await axios.get(`https://admin.ftth.iq/api/subscriptions/device/ont?username=${username}`, {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
     } catch (error) {
-        try {
-            const altResponse = await apiClient.get(`https://admin.ftth.iq/api/subscriptions/ont?username=${username}`, {
-                headers: { 'Authorization': token, 'Accept': 'application/json' }
-            });
-            return res.json(altResponse.data);
-        } catch (err) {
-            res.status(500).json({ error: "تعذر جلب بيانات الـ ONT" });
-        }
+        res.status(500).json({ error: "تعذر جلب معلومات الـ ONT" });
     }
 });
 
@@ -102,8 +90,8 @@ app.get('/api/ftth/customer/:id', async (req, res) => {
 
     try {
         const [custRes, subsRes] = await Promise.all([
-            apiClient.get(`https://admin.ftth.iq/api/customers/${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: {} })),
-            apiClient.get(`https://admin.ftth.iq/api/customers/subscriptions?customerId=${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: {} }))
+            axios.get(`https://admin.ftth.iq/api/customers/${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: {} })),
+            axios.get(`https://admin.ftth.iq/api/customers/subscriptions?customerId=${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: {} }))
         ]);
 
         res.json({
@@ -121,7 +109,7 @@ app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await apiClient.get(`https://admin.ftth.iq/api/partners/${partnerId}/wallets/balance`, {
+        const response = await axios.get(`https://admin.ftth.iq/api/partners/${partnerId}/wallets/balance`, {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
@@ -135,7 +123,7 @@ app.get('/api/ftth/sessions', async (req, res) => {
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await apiClient.get('https://admin.ftth.iq/api/sessions?pageSize=50&pageNumber=1&sortCriteria.property=username&sortCriteria.direction=asc&status=1&hierarchyLevel=1', {
+        const response = await axios.get('https://admin.ftth.iq/api/sessions?pageSize=50&pageNumber=1&sortCriteria.property=username&sortCriteria.direction=asc&status=1&hierarchyLevel=1', {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
@@ -149,7 +137,7 @@ app.get('/api/ftth/tickets', async (req, res) => {
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await apiClient.get('https://admin.ftth.iq/api/support/tickets?pageSize=12&pageNumber=1&sortCriteria.property=createdAt&sortCriteria.direction=desc&hierarchyLevel=1&additionalFilter=ForMe', {
+        const response = await axios.get('https://admin.ftth.iq/api/support/tickets?pageSize=12&pageNumber=1&sortCriteria.property=createdAt&sortCriteria.direction=desc&hierarchyLevel=1&additionalFilter=ForMe', {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
@@ -163,7 +151,7 @@ app.get('/api/ftth/requests', async (req, res) => {
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await apiClient.get('https://admin.ftth.iq/api/requests?pageSize=10&pageNumber=1&sortCriteria.property=CreatedAt&sortCriteria.direction=desc&typeIds=28be9a02-1365-400b-9db4-003829eb962c&status=Open&additionalFilters=MyRequests', {
+        const response = await axios.get('https://admin.ftth.iq/api/requests?pageSize=10&pageNumber=1&sortCriteria.property=CreatedAt&sortCriteria.direction=desc&typeIds=28be9a02-1365-400b-9db4-003829eb962c&status=Open&additionalFilters=MyRequests', {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
