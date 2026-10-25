@@ -177,22 +177,20 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// معالجة عرض بيانات الـ ONT بدقة مطابقة تماماً للاستجابة المرسلة
+// عرض معلومات الـ ONT بدقة متناهية مطابقة لهيكل الـ JSON الخاص بك
 function formatOntData(ontData, subDeviceDetails) {
-    if (!ontData && !subDeviceDetails) return '<p class="text-slate-400 text-xs">لا توجد معلومات ONT متاحة</p>';
-    
-    // استخراج الحالة من الـ model أو الـ object
+    const model = ontData?.model || ontData || {};
     let statusText = 'Up';
-    if (ontData?.status) {
-        if (typeof ontData.status === 'object') {
-            statusText = ontData.status.displayValue || ontData.status.name || 'Up';
+    if (model.status) {
+        if (typeof model.status === 'object') {
+            statusText = model.status.displayValue || model.status.name || 'Up';
         } else {
-            statusText = String(ontData.status);
+            statusText = String(model.status);
         }
     }
     
-    let rxPowerVal = ontData?.rxPower !== undefined && ontData?.rxPower !== null ? ontData.rxPower : 'غير متوفرة';
-    let serialNum = subDeviceDetails?.serial || ontData?.serialNumber || ontData?.sn || ontData?.mac || 'غير معروف';
+    let rxPowerVal = model.rxPower !== undefined && model.rxPower !== null ? model.rxPower : 'غير متوفرة';
+    let serialNum = subDeviceDetails?.serial || model.serialNumber || model.sn || 'غير معروف';
     let fdtVal = extractValue(subDeviceDetails?.fdt) || 'غير متاح';
     let fatVal = extractValue(subDeviceDetails?.fat) || 'غير متاح';
 
@@ -220,7 +218,7 @@ function formatOntData(ontData, subDeviceDetails) {
 }
 
 function formatSessionDetails(sub) {
-    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 flex justify-between items-center text-xs"><span class="text-slate-400">تاريخ التفعيل/البدء:</span><span class="text-white font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
+    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 flex justify-between items-center text-xs"><span class="text-slate-400">تاريخ البدء:</span><span class="text-white font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
     
     if (!sub.activeSession) return startedHtml + `<p class="text-slate-400 text-xs">لا توجد جلسة اتصال نشطة حالياً</p>`;
 
@@ -383,8 +381,8 @@ function renderTableRows(items) {
         const isOnline = Boolean(sub.hasActiveSession);
         const planType = getSubscriptionType(sub);
         
-        // استخراج معرف العميل الصحيح من كائن المشترك أو الـ ID
-        const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || '863582';
+        // استخراج الـ customerId بدقة من كائن الـ customer أو الـ ID
+        const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
 
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-700/40 transition cursor-pointer">
@@ -423,7 +421,7 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// عرض ملف المشترك الشامل مع استخراج رقم الهاتف، الإحداثيات، وبور الـ ONT بدقة
+// عرض ملف العميل الشامل واستخراج رقم الهاتف والـ SN واشتراكات العميل تماماً كما أرسلتها
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -457,15 +455,18 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
 
     container.innerHTML = '';
 
-    // 1. تفاصيل جلسة الاتصال وتاريخ التفعيل
-    container.innerHTML += formatSessionDetails(sub);
+    // دمج اشتراكات العميل للحصول على الـ deviceDetails الحقيقي (Serial, FDT, FAT)
+    const customerSubs = customerData?.customerSubscriptions || [];
+    const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
 
-    // 2. معلومات الـ ONT (تتضمن model الـ ONT أو الـ deviceDetails)
-    const rawOntModel = ontData?.model || ontData;
+    // 1. تفاصيل جلسة الاتصال وتاريخ البدء
+    container.innerHTML += formatSessionDetails(matchedSub);
+
+    // 2. معلومات الـ ONT والرقم التسلسلي
     container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT واختبار الإشارة</div>`;
-    container.innerHTML += formatOntData(rawOntModel, sub.deviceDetails);
+    container.innerHTML += formatOntData(ontData, matchedSub.deviceDetails);
 
-    // 3. استخراج الهاتف والإحداثيات من هيكل العميل الحقيقي الذي أرسلته
+    // 3. استخراج رقم الهاتف والموقع الجغرافي بالاعتماد على هيكل customer الـ API
     const custModel = customerData?.customer || {};
     const primaryContact = custModel.primaryContact || {};
     const addresses = custModel.addresses || [];
@@ -516,7 +517,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     };
 
     let baseInfoHtml = `<div class="space-y-2 pt-2"><div class="text-emerald-400 font-bold pb-1 border-b border-slate-700">بيانات الاشتراك الأساسية</div>`;
-    for (const [key, value] of Object.entries(sub)) {
+    for (const [key, value] of Object.entries(matchedSub)) {
         if (excludedFields.includes(key)) continue;
 
         const labelName = keyLabels[key] || key;
@@ -533,7 +534,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
         } else if (key === 'username') {
             displayVal = cleanUsername(displayVal);
         } else if (key === 'salesType' || key === 'package' || key === 'self') {
-            displayVal = getSubscriptionType(sub);
+            displayVal = getSubscriptionType(matchedSub);
         }
 
         baseInfoHtml += `
