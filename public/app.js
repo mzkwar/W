@@ -225,8 +225,50 @@ async function loadSubscribersFast() {
         
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
+
+        // جلب البورات في الخلفية لكل المشتركين تدريجياً لملء الجدول بدون ضغط
+        fetchSubscribersPowerInBackground(cachedSubscribers);
     } catch (err) {
         console.error(err);
+    }
+}
+
+// جلب البورات في الخلفية وتحديث الجدول تلقائياً
+async function fetchSubscribersPowerInBackground(items) {
+    for (let sub of items) {
+        const username = cleanUsername(sub.username || sub.id);
+        if (subscribersPowerCache[username] === undefined) {
+            try {
+                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
+                if (res.ok) {
+                    const data = await res.json();
+                    const rx = data?.model?.rxPower !== undefined ? data.model.rxPower : (data?.rxPower !== undefined ? data.rxPower : null);
+                    subscribersPowerCache[username] = rx !== null ? Number(rx) : null;
+                } else {
+                    subscribersPowerCache[username] = null;
+                }
+            } catch (e) {
+                subscribersPowerCache[username] = null;
+            }
+            // تحديث عرض السطر في الجدول فور توفر البور
+            updateSubscriberPowerCell(username);
+        }
+    }
+}
+
+function updateSubscriberPowerCell(username) {
+    const powerEl = document.getElementById(`power-cell-${username}`);
+    if (powerEl) {
+        const val = subscribersPowerCache[username];
+        if (val !== null && val !== undefined) {
+            let color = 'text-emerald-500';
+            if (val < -27) color = 'text-rose-500';
+            else if (val < -23) color = 'text-amber-500';
+            powerEl.className = `font-mono font-bold ${color} dir-ltr`;
+            powerEl.innerText = `${val} dBm`;
+        } else {
+            powerEl.innerText = 'غير متوفر';
+        }
     }
 }
 
@@ -273,13 +315,30 @@ function filterExpiringSoon() {
     showToast(`عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام (${filtered.length})`);
 }
 
+function filterByActivationDate() {
+    const val = document.getElementById('filter-activation-date').value;
+    if (!val) {
+        renderTableRows(cachedSubscribers);
+        return;
+    }
+    const filtered = cachedSubscribers.filter(sub => {
+        const started = sub.startedAt || sub.createdAt || sub.activationDate || '';
+        return started.startsWith(val);
+    });
+    renderTableRows(filtered);
+    showToast(`تم الفرز حسب تاريخ التفعيل: ${val} (${filtered.length} مشترك)`);
+}
+
 function renderTableRows(items) {
     const tbody = document.getElementById('subscribers-table-body');
+    const countBadge = document.getElementById('subscribers-count-badge');
+    if (countBadge) countBadge.innerText = `العدد: ${items.length}`;
+
     if (!tbody) return;
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">لا توجد نتائج مطابقة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">لا توجد نتائج مطابقة</td></tr>`;
         return;
     }
 
@@ -291,6 +350,15 @@ function renderTableRows(items) {
         const planType = getSubscriptionType(sub);
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
 
+        const powerVal = subscribersPowerCache[username];
+        let powerDisplay = `<span id="power-cell-${username}" class="text-slate-400 text-[11px] animate-pulse">جاري الفحص...</span>`;
+        if (powerVal !== undefined && powerVal !== null) {
+            let color = 'text-emerald-500';
+            if (powerVal < -27) color = 'text-rose-500';
+            else if (powerVal < -23) color = 'text-amber-500';
+            powerDisplay = `<span id="power-cell-${username}" class="font-mono font-bold ${color} dir-ltr">${powerVal} dBm</span>`;
+        }
+
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition cursor-pointer">
                 <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
@@ -298,6 +366,7 @@ function renderTableRows(items) {
                     <span class="font-bold text-indigo-600 dark:text-indigo-400 block">${realCustomerName}</span>
                     <span class="text-[10px] text-slate-500 font-mono">${username}</span>
                 </td>
+                <td class="p-3">${powerDisplay}</td>
                 <td class="p-3">
                     <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}">
                         ${isActive ? 'فعال' : 'منتهي'}
@@ -320,20 +389,21 @@ function filterSubscribers() {
         renderTableRows(cachedSubscribers);
         return;
     }
-    renderTableRows(cachedSubscribers.filter(sub => extractValue(sub.customer).toLowerCase().includes(query) || cleanUsername(sub.username || sub.id).toLowerCase().includes(query)));
+    const filtered = cachedSubscribers.filter(sub => extractValue(sub.customer).toLowerCase().includes(query) || cleanUsername(sub.username || sub.id).toLowerCase().includes(query));
+    renderTableRows(filtered);
 }
 
-// دالة ترتيب البورات المحسنة (تعمل بشكل متوازي وآمن بدون أخطاء)
+// دالة ترتيب البورات تنازلياً (القيمة الأقرب للصفر مثل -22 أعلى من -24)
 async function renderPowerRankingModal() {
     const modal = document.getElementById('power-ranking-modal');
     const listContainer = document.getElementById('power-ranking-list');
     modal.classList.remove('hidden');
-    listContainer.innerHTML = `<p class="text-center text-slate-400 py-6 animate-pulse">جاري فحص وجلب إشارات البور للمشتركين...</p>`;
+    listContainer.innerHTML = `<p class="text-center text-slate-400 py-6 animate-pulse">جاري ترتيب المشتركين حسب قوة الإشارة...</p>`;
 
-    // فحص البورات بشكل متوازيدفعات سريعة
-    const promises = cachedSubscribers.map(async (sub) => {
+    // التأكد من فحص جميع المشتركين غير المفحوصين
+    await Promise.allSettled(cachedSubscribers.map(async (sub) => {
         const username = cleanUsername(sub.username || sub.id);
-        if (subscribersPowerCache[username] === undefined) {
+        if (subscribersPowerCache[username] === undefined || subscribersPowerCache[username] === null) {
             try {
                 const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
                 if (res.ok) {
@@ -347,6 +417,10 @@ async function renderPowerRankingModal() {
                 subscribersPowerCache[username] = null;
             }
         }
+    }));
+
+    let powerDataList = cachedSubscribers.map(sub => {
+        const username = cleanUsername(sub.username || sub.id);
         return {
             name: extractValue(sub.customer) || 'غير محدد',
             username: username,
@@ -355,10 +429,8 @@ async function renderPowerRankingModal() {
         };
     });
 
-    const powerDataList = await Promise.all(promises);
-
-    // تصفية القيم الموجودة وترتيبها تنازلياً (الأعلى بالسالب أي الأقرب للصفر أولاً)
     const validPowerList = powerDataList.filter(item => item.rxPower !== null && item.rxPower !== undefined && !isNaN(item.rxPower));
+    // ترتيب تنازلي (-22 يأتي قبل -24 لأنه أعلى وأقرب للصفر)
     validPowerList.sort((a, b) => b.rxPower - a.rxPower);
 
     if (validPowerList.length === 0) {
@@ -389,7 +461,7 @@ function closePowerRankingModal() {
     document.getElementById('power-ranking-modal').classList.add('hidden');
 }
 
-// ملف المشترك مرتب بالترتيب المطلوب
+// ملف المشترك بالترتيب المطلوب
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
