@@ -54,7 +54,7 @@ app.post('/api/ftth/login', async (req, res) => {
     }
 });
 
-// 1. جلب الاشتراكات العامة
+// الاشتراكات
 app.get('/api/ftth/subscriptions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -69,7 +69,7 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
     }
 });
 
-// 2. جلب تفاصيل جهاز الـ ONT
+// تفاصيل جهاز ONT
 app.get('/api/ftth/ont', async (req, res) => {
     const token = req.headers.authorization;
     const username = req.query.username;
@@ -85,7 +85,7 @@ app.get('/api/ftth/ont', async (req, res) => {
     }
 });
 
-// 3. جلب بيانات عميل معين بالـ ID (مثل /api/customers/542203)
+// بيانات العميل الفردية
 app.get('/api/ftth/customer/:id', async (req, res) => {
     const token = req.headers.authorization;
     const customerId = req.params.id;
@@ -101,7 +101,7 @@ app.get('/api/ftth/customer/:id', async (req, res) => {
     }
 });
 
-// 4. جلب رصيد المحفظة للشريك (Partner Wallet Balance)
+// محفظة الشريك
 app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     const token = req.headers.authorization;
     const partnerId = req.params.partnerId;
@@ -117,7 +117,7 @@ app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     }
 });
 
-// 5. جلب المناطق (Zones)
+// المناطق (Zones)
 app.get('/api/ftth/zones', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -132,13 +132,28 @@ app.get('/api/ftth/zones', async (req, res) => {
     }
 });
 
-// 6. جلب التذاكر
+// الجلسات (Sessions للأونلاين/أوفلاين)
+app.get('/api/ftth/sessions', async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get('https://admin.ftth.iq/api/sessions?pageSize=50&pageNumber=1&sortCriteria.property=username&sortCriteria.direction=asc&status=1&hierarchyLevel=1', {
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "تعذر جلب الجلسات" });
+    }
+});
+
+// التذاكر
 app.get('/api/ftth/tickets', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await axios.get('https://admin.ftth.iq/api/support/tickets?pageSize=12&pageNumber=1&sortCriteria.property=createdAt&sortCriteria.direction=desc&hierarchyLevel=0&additionalFilter=ForMe', {
+        const response = await axios.get('https://admin.ftth.iq/api/support/tickets?pageSize=12&pageNumber=1&sortCriteria.property=createdAt&sortCriteria.direction=desc&hierarchyLevel=1&additionalFilter=ForMe', {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
