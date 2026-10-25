@@ -1,7 +1,6 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
-let cachedSessions = [];
-let currentFilterMode = 'all'; // all, online, offline
+let cachedExpiring = [];
 
 window.addEventListener('DOMContentLoaded', async () => {
     if (authToken) {
@@ -10,6 +9,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         
         await Promise.all([
             loadSubscribersFast(),
+            loadExpiringSubscribers(),
             loadWalletBalance(),
             loadZones(),
             loadSessions(),
@@ -17,7 +17,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             loadTickets()
         ]);
 
-        // إخفاء شاشة التحميل الشاملة بكلاس سلس
         const loader = document.getElementById('global-loader');
         if (loader) {
             loader.style.opacity = '0';
@@ -48,6 +47,15 @@ function showToast(message, type = 'info') {
         toast.classList.add('translate-y-[-20px]', 'opacity-0');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+function handleAuthError(res) {
+    if (res.status === 401) {
+        showToast("انتهت صلاحية الجلسة أو التوكن غير صالح، يرجى تسجيل الدخول مجدداً", "error");
+        logout();
+        return true;
+    }
+    return false;
 }
 
 function getAccountIdFromToken(token) {
@@ -85,7 +93,6 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (res.ok && rawToken) {
             authToken = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;
             localStorage.setItem('ftth_token', authToken);
-
             location.reload();
         } else {
             showToast(data.message || data.error || "فشل تسجيل الدخول", "error");
@@ -135,7 +142,6 @@ function getSubscriptionType(sub) {
     return typeVal || 'SELF';
 }
 
-// تنسيق التاريخ والوقت وحساب الأيام المتبقية
 function formatDateClean(isoString) {
     if (!isoString) return 'غير محدد';
     try {
@@ -162,7 +168,63 @@ function formatDateClean(isoString) {
     }
 }
 
-// تنسيق الرصيد البشري
+// تنسيق بيانات الـ ONT
+function formatOntData(ontData) {
+    if (!ontData) return '<p class="text-slate-400 text-xs">لا توجد معلومات ONT متاحة</p>';
+    
+    let statusText = 'غير معروف';
+    if (ontData.status) {
+        const rawStatus = extractValue(ontData.status).toUpperCase();
+        statusText = rawStatus === 'UP' ? 'نشط UP' : (rawStatus === 'DOWN' ? 'غير نشط Down' : rawStatus);
+    }
+    
+    let rxPowerVal = ontData.rxPower !== undefined ? ontData.rxPower : 'غير متوفر';
+
+    let html = `
+        <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/50 space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-indigo-300 font-medium">الحالة:</span>
+                <span class="font-bold ${statusText.includes('UP') ? 'text-emerald-400' : 'text-rose-400'}">${statusText}</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-indigo-300 font-medium">البور (Rx Power):</span>
+                <span class="font-bold text-white dir-ltr">${rxPowerVal} dBm</span>
+            </div>
+    `;
+
+    for (const [k, v] of Object.entries(ontData)) {
+        if (k !== 'status' && k !== 'rxPower' && typeof v !== 'object' && v !== null) {
+            html += `
+                <div class="flex justify-between items-center text-xs pt-1 border-t border-indigo-900/40">
+                    <span class="text-slate-400">${k}:</span>
+                    <span class="text-white dir-ltr">${v}</span>
+                </div>
+            `;
+        }
+    }
+    html += `</div>`;
+    return html;
+}
+
+// تنسيق جلسة الاتصال activeSession وتاريخ البدء startedAt
+function formatSessionDetails(sub) {
+    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-900 rounded-xl border border-slate-700/60 flex justify-between items-center"><span class="text-slate-400">تاريخ البدء:</span><span class="text-white font-mono text-xs">${formatDateClean(sub.startedAt)}</span></div>` : '';
+    
+    if (!sub.activeSession) return startedHtml + `<p class="text-slate-400 text-xs">لا توجد جلسة اتصال نشطة حالياً</p>`;
+
+    const session = sub.activeSession;
+    return `
+        ${startedHtml}
+        <div class="p-3 bg-blue-950/30 rounded-xl border border-blue-800/40 space-y-2 text-xs">
+            <div class="text-blue-400 font-bold border-b border-blue-900/50 pb-1">تفاصيل جلسة الاتصال النشطة</div>
+            <div class="flex justify-between items-center"><span class="text-slate-400">وقت البدء:</span><span class="text-white">${formatDateClean(session.startedAt)}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-400">عنوان IP:</span><span class="text-white font-mono dir-ltr">${session.ipAddress || 'N/A'}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-400">عنوان MAC:</span><span class="text-white font-mono dir-ltr">${session.macAddress || 'N/A'}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-400">مدة الاتصال (بالثواني):</span><span class="text-white font-mono">${session.sessionTimeInSeconds || '0'} ثانية</span></div>
+        </div>
+    `;
+}
+
 async function loadWalletBalance() {
     const badge = document.getElementById('wallet-badge');
     if (!badge) return;
@@ -172,6 +234,8 @@ async function loadWalletBalance() {
         const accountId = getAccountIdFromToken(cleanToken);
 
         const res = await fetch(`/api/ftth/wallet/${accountId}`, { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
         if (res.ok) {
             const walletData = await res.json();
             let balance = 0;
@@ -194,12 +258,18 @@ async function loadWalletBalance() {
 async function loadZones() {
     try {
         const res = await fetch('/api/ftth/zones', { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
         if (res.ok) {
             const zonesData = await res.json();
             const zones = Array.isArray(zonesData) ? zonesData : (zonesData.items || zonesData.zones || []);
             const selectZone = document.getElementById('select-zone-filter');
             if (selectZone && zones.length > 0) {
-                selectZone.innerHTML = '<option value="">جميع المناطق (Zones)</option>' + zones.map(z => `<option value="${z.id || z.name}">${z.name || z.title || z.id}</option>`).join('');
+                selectZone.innerHTML = '<option value="">جميع المناطق (Zones)</option>' + zones.map(z => {
+                    const zId = z.id || z.name || '';
+                    const zName = z.name || z.title || z.id || 'منطقة غير محددة';
+                    return `<option value="${zId}">${zName}</option>`;
+                }).join('');
             }
         }
     } catch (e) {
@@ -210,10 +280,7 @@ async function loadZones() {
 async function loadSessions() {
     try {
         const res = await fetch('/api/ftth/sessions', { headers: { 'Authorization': authToken } });
-        if (res.ok) {
-            const sessionData = await res.json();
-            cachedSessions = Array.isArray(sessionData) ? sessionData : (sessionData.items || sessionData.sessions || []);
-        }
+        handleAuthError(res);
     } catch (e) {
         console.error("خطأ في جلب الجلسات", e);
     }
@@ -222,11 +289,7 @@ async function loadSessions() {
 async function loadSubscribersFast() {
     try {
         const res = await fetch('/api/ftth/subscriptions', { headers: { 'Authorization': authToken } });
-        
-        if (res.status === 401) {
-            showToast("انتهت صلاحية الجلسة، يرجى تسجيل الدخول", "error");
-            return;
-        }
+        if (handleAuthError(res)) return;
 
         const subData = await res.json();
         cachedSubscribers = Array.isArray(subData) ? subData : (subData.items || subData.subscribers || subData.data || []);
@@ -237,6 +300,22 @@ async function loadSubscribersFast() {
         console.error("خطأ في جلب البيانات:", err);
         const tbody = document.getElementById('subscribers-table-body');
         if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+    }
+}
+
+async function loadExpiringSubscribers() {
+    try {
+        const res = await fetch('/api/ftth/subscriptions/expiring', { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
+        if (res.ok) {
+            const data = await res.json();
+            cachedExpiring = Array.isArray(data) ? data : (data.items || data.subscribers || data.data || []);
+            const statExpiring = document.getElementById('stat-expiring');
+            if (statExpiring) statExpiring.innerText = cachedExpiring.length;
+        }
+    } catch (e) {
+        console.error("خطأ جلب الاشتراكات القريبة الانتهاء", e);
     }
 }
 
@@ -264,17 +343,26 @@ function updateGlobalStats(items) {
 }
 
 function filterOnlineStatus(mode) {
-    currentFilterMode = mode;
     if (mode === 'online') {
         const filtered = cachedSubscribers.filter(s => Boolean(s.hasActiveSession));
         renderTableRows(filtered);
-        showToast("تم تصفية المشتركين المتصلين حالياً");
+        showToast("عرض المشتركين المتصلين الآن");
     } else if (mode === 'offline') {
         const filtered = cachedSubscribers.filter(s => !Boolean(s.hasActiveSession));
         renderTableRows(filtered);
-        showToast("تم تصفية المشتركين غير المتصلين بالاعتماد على الجلسات");
+        showToast("عرض المشتركين غير المتصلين");
     } else {
         renderTableRows(cachedSubscribers);
+        showToast("عرض جميع المشتركين");
+    }
+}
+
+function filterExpiringSoon() {
+    if (cachedExpiring.length > 0) {
+        renderTableRows(cachedExpiring);
+        showToast("عرض المشتركين الذين تنتهي حساباتهم قريباً");
+    } else {
+        showToast("لا توجد حسابات تنتهي قريباً أو جاري التحديث", "error");
     }
 }
 
@@ -310,11 +398,12 @@ function renderTableRows(items) {
         const planType = getSubscriptionType(sub);
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || '542203';
 
+        // الصف بأكمله قابل للضغط بدون تقييد على اسم المشترك حصراً
         tbody.innerHTML += `
-            <tr class="hover:bg-slate-700/30 transition">
-                <td class="p-3"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
+            <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-700/40 transition cursor-pointer">
+                <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
                 <td class="p-3">
-                    <a href="javascript:void(0)" onclick="openSubscriberCard('${username}', '${customerId}')" class="font-bold text-indigo-400 hover:underline block">${realCustomerName}</a>
+                    <span class="font-bold text-indigo-400 block">${realCustomerName}</span>
                     <span class="text-[10px] text-slate-400 font-mono">${username}</span>
                 </td>
                 <td class="p-3">
@@ -347,19 +436,22 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-async function openSubscriberCard(targetUsername, customerId) {
-    const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
+// عرض بيانات المشترك في صفحة مستقلة منفصلة بالكامل
+async function openSubscriberDetailPage(targetUsername, customerId) {
+    const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername) || cachedExpiring.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
 
     const realCustomerName = extractValue(sub.customer) || 'غير محدد';
     const username = cleanUsername(sub.username) || cleanUsername(sub.id) || 'N/A';
 
-    document.getElementById('modal-sub-name').innerText = realCustomerName;
-    document.getElementById('modal-sub-user').innerText = username;
+    document.getElementById('detail-sub-name').innerText = realCustomerName;
+    document.getElementById('detail-sub-user').innerText = username;
 
-    const container = document.getElementById('modal-content-card');
-    container.innerHTML = `<p class="text-center text-slate-400 py-4 animate-pulse">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
-    document.getElementById('subscriber-modal').classList.remove('hidden');
+    const detailPage = document.getElementById('subscriber-detail-page');
+    const container = document.getElementById('detail-content-card');
+    
+    container.innerHTML = `<p class="text-center text-slate-400 py-12 animate-pulse">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
+    detailPage.classList.remove('hidden');
 
     let customerDetails = null;
     let ontData = null;
@@ -378,10 +470,19 @@ async function openSubscriberCard(targetUsername, customerId) {
 
     container.innerHTML = '';
 
+    // عرض جلسة الاتصال وتاريخ البدء
+    container.innerHTML += formatSessionDetails(sub);
+
+    // عرض بيانات الـ ONT بالتنسيق المطلوب
+    if (ontData) {
+        container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT</div>`;
+        container.innerHTML += formatOntData(ontData);
+    }
+
     const excludedFields = [
         'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
         'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
-        '_isOnline', 'commitmentPeriod'
+        '_isOnline', 'commitmentPeriod', 'activeSession', 'startedAt'
     ];
 
     const keyLabels = {
@@ -399,6 +500,7 @@ async function openSubscriberCard(targetUsername, customerId) {
         'hasActiveSession': 'حالة الاتصال'
     };
 
+    let baseInfoHtml = `<div class="space-y-2 pt-2"><div class="text-emerald-400 font-bold pb-1 border-b border-slate-700">بيانات الاشتراك الأساسية</div>`;
     for (const [key, value] of Object.entries(sub)) {
         if (excludedFields.includes(key)) continue;
 
@@ -419,48 +521,42 @@ async function openSubscriberCard(targetUsername, customerId) {
             displayVal = getSubscriptionType(sub);
         }
 
-        container.innerHTML += `
-            <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700/60">
+        baseInfoHtml += `
+            <div class="flex justify-between items-center p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 text-xs">
                 <span class="text-slate-400 font-medium">${labelName}</span>
                 <span class="text-white font-semibold text-left dir-ltr break-all max-w-[200px]">${displayVal}</span>
             </div>
         `;
     }
+    baseInfoHtml += `</div>`;
+    container.innerHTML += baseInfoHtml;
 
     if (customerDetails) {
-        container.innerHTML += `<div class="text-emerald-400 font-bold pt-2 border-t border-slate-700 text-center">معلومات ملف العميل الشامل</div>`;
+        let custHtml = `<div class="space-y-2 pt-3"><div class="text-teal-400 font-bold pb-1 border-b border-slate-700">ملف العميل الشامل</div>`;
         for (const [cKey, cVal] of Object.entries(customerDetails)) {
             if (typeof cVal !== 'object' && cVal !== null) {
-                container.innerHTML += `
-                    <div class="flex justify-between items-center p-2.5 bg-emerald-950/20 rounded-xl border border-emerald-800/40">
-                        <span class="text-emerald-300 font-medium">العميل: ${cKey}</span>
+                custHtml += `
+                    <div class="flex justify-between items-center p-2.5 bg-teal-950/20 rounded-xl border border-teal-800/40 text-xs">
+                        <span class="text-teal-300 font-medium">${cKey}</span>
                         <span class="text-white font-semibold text-left dir-ltr break-all max-w-[200px]">${cVal}</span>
                     </div>
                 `;
             }
         }
-    }
-
-    if (ontData) {
-        container.innerHTML += `<div class="text-indigo-400 font-bold pt-2 border-t border-slate-700 text-center">معلومات جهاز الـ ONT</div>`;
-        for (const [ontKey, ontVal] of Object.entries(ontData)) {
-            container.innerHTML += `
-                <div class="flex justify-between items-center p-2.5 bg-indigo-950/30 rounded-xl border border-indigo-800/40">
-                    <span class="text-indigo-300 font-medium">ONT: ${ontKey}</span>
-                    <span class="text-white font-semibold text-left dir-ltr break-all max-w-[200px]">${extractValue(ontVal)}</span>
-                </div>
-            `;
-        }
+        custHtml += `</div>`;
+        container.innerHTML += custHtml;
     }
 }
 
-function closeModal() {
-    document.getElementById('subscriber-modal').classList.add('hidden');
+function closeSubscriberDetail() {
+    document.getElementById('subscriber-detail-page').classList.add('hidden');
 }
 
 async function loadAgents() {
     try {
         const res = await fetch('/api/admin/sub-agents');
+        if (handleAuthError(res)) return;
+
         const agents = await res.json();
         const list = document.getElementById('agents-list');
         const select = document.getElementById('select-agent-assign');
@@ -488,6 +584,7 @@ async function loadAgents() {
     }
 }
 
+// عرض التذاكر مع رقم التذكرة والعنوان وزر عرض المزيد
 async function loadTickets() {
     const list = document.getElementById('tickets-list');
     if (!list) return;
@@ -496,6 +593,8 @@ async function loadTickets() {
 
     try {
         const res = await fetch('/api/ftth/tickets', { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
         const data = await res.json();
         const items = data.items || data.tickets || [];
 
@@ -504,19 +603,28 @@ async function loadTickets() {
             return;
         }
 
-        list.innerHTML = items.map(t => `
-            <div class="p-3 bg-slate-900 rounded-xl border border-slate-700/80 space-y-1.5">
-                <div class="flex justify-between items-center">
-                    <span class="text-xs font-bold text-indigo-400">تذكرة رقم #${t.ticketNumber || t.id}</span>
-                    <span class="text-[10px] px-2 py-0.5 rounded ${t.status === 'Closed' ? 'bg-slate-800 text-slate-400' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">${t.status || 'مفتوحة'}</span>
+        list.innerHTML = items.map(t => {
+            const ticketNum = t.ticketNumber || t.id || 'N/A';
+            const title = t.title || t.subject || 'بدون عنوان';
+            const status = t.status || 'مفتوحة';
+            const customerName = extractValue(t.customer || t.creator || 'غير معروف');
+            const dateStr = formatDateClean(t.createdAt);
+
+            return `
+                <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-700/80 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-indigo-400">تذكرة رقم #${ticketNum}</span>
+                        <span class="text-[10px] px-2 py-0.5 rounded ${status === 'Closed' ? 'bg-slate-800 text-slate-400' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">${status}</span>
+                    </div>
+                    <p class="text-xs font-bold text-white">${title}</p>
+                    <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800">
+                        <span>المرسل: ${customerName}</span>
+                        <span>التاريخ: ${dateStr}</span>
+                    </div>
+                    <button onclick="alert('تفاصيل التذكرة رقم #${ticketNum}\\nالعنوان: ${title}\\nالحالة: ${status}\\nالتاريخ: ${dateStr}')" class="w-full mt-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 py-1.5 rounded-lg text-[11px] font-bold transition">عرض المزيد</button>
                 </div>
-                <p class="text-xs font-bold text-white">${t.title || t.subject || 'بدون عنوان'}</p>
-                <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800">
-                    <span>المرسل: ${extractValue(t.customer || t.creator || 'غير معروف')}</span>
-                    <span>التاريخ: ${formatDateClean(t.createdAt)}</span>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (e) {
         list.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">تعذر جلب التذاكر</p>`;
     }
