@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> إدارة FTTH</title>
+    <title>نظام إدارة FTTH</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style> 
@@ -43,13 +43,16 @@
 
     <!-- لوحة التحكم الرئيسية -->
     <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
-        <!-- شريط علوي -->
+        <!-- شريط علوي مع عرض الرصيد -->
         <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 p-4 flex justify-between items-center">
-            <h1 class="text-base font-bold text-white" id="header-title">المشتركين</h1>
+            <div class="flex items-center gap-3">
+                <h1 class="text-base font-bold text-white" id="header-title">المشتركين</h1>
+                <span id="wallet-badge" class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg text-xs font-bold">الرصيد: جاري...</span>
+            </div>
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات مع تأثير التحميل -->
+        <!-- كروت الإحصائيات -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
             <div class="bg-slate-800 p-3 rounded-xl border border-slate-700/60">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
@@ -152,7 +155,7 @@
                 </div>
                 
                 <div id="modal-content-card" class="space-y-2.5 text-xs max-h-[60vh] overflow-y-auto pr-1">
-                    <p class="text-center text-slate-400 py-4">جاري تحميل تفاصيل الحساب وبيانات الـ ONT...</p>
+                    <p class="text-center text-slate-400 py-4">جاري تحميل بيانات العميل والـ ONT...</p>
                 </div>
 
                 <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold text-xs shadow-lg">إغلاق البطاقة</button>
