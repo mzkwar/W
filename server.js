@@ -54,7 +54,7 @@ app.post('/api/ftth/login', async (req, res) => {
     }
 });
 
-// الاشتراكات
+// الاشتراكات العامة
 app.get('/api/ftth/subscriptions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -66,6 +66,21 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
         res.json(response.data);
     } catch (error) {
         res.status(error.response?.status || 500).json({ error: "تعذر جلب الاشتراكات" });
+    }
+});
+
+// الاشتراكات التي تنتهي قريباً (Expiring)
+app.get('/api/ftth/subscriptions/expiring', async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get('https://admin.ftth.iq/subscriptions?filterBy=Expiring', {
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "تعذر جلب الاشتراكات القريبة الانتهاء" });
     }
 });
 
@@ -169,7 +184,7 @@ app.post('/api/admin/sub-agents', (req, res) => {
     db.run(`INSERT INTO sub_agents (username, password, name) VALUES (?, ?, ?)`,
         [username, password, name],
         function(err) {
-            if (err) return res.status(400).json({ error: "اسم المستخدم مستعمل بالفعل" });
+            if (err) return res.status(400).json({ error: "اسم المستخدم مستعمل بالفعل أو مسجل مسبقاً" });
             res.json({ id: this.lastID, username, name });
         }
     );
