@@ -1,5 +1,6 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
+let displayedSubscribers = [];
 
 window.addEventListener('DOMContentLoaded', async () => {
     if (authToken) {
@@ -288,7 +289,7 @@ async function loadSubscribersFast() {
     } catch (err) {
         console.error("خطأ في جلب البيانات:", err);
         const tbody = document.getElementById('subscribers-table-body');
-        if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+        if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
     }
 }
 
@@ -365,12 +366,13 @@ function filterByActivationDate() {
 }
 
 function renderTableRows(items) {
+    displayedSubscribers = items;
     const tbody = document.getElementById('subscribers-table-body');
     if (!tbody) return;
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">لا توجد نتائج مطابقة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">لا توجد نتائج مطابقة</td></tr>`;
         return;
     }
 
@@ -384,6 +386,8 @@ function renderTableRows(items) {
         
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
 
+        const powerDisplay = `<span class="font-mono font-bold text-slate-400 dir-ltr">${sub.rxPower !== undefined && sub.rxPower !== null ? sub.rxPower + ' dBm' : '0 dBm'}</span>`;
+
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-700/40 transition cursor-pointer">
                 <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
@@ -391,6 +395,7 @@ function renderTableRows(items) {
                     <span class="font-bold text-indigo-400 block">${realCustomerName}</span>
                     <span class="text-[10px] text-slate-400 font-mono">${username}</span>
                 </td>
+                <td class="p-3">${powerDisplay}</td>
                 <td class="p-3">
                     <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
                         ${isActive ? 'فعال' : 'منتهي'}
@@ -419,6 +424,32 @@ function filterSubscribers() {
         return realCustomerName.includes(query) || username.includes(query);
     });
     renderTableRows(filtered);
+}
+
+let sortNameAsc = true;
+function sortSubscribersByName() {
+    sortNameAsc = !sortNameAsc;
+    displayedSubscribers.sort((a, b) => {
+        const nameA = (extractValue(a.customer) || '').toLowerCase();
+        const nameB = (extractValue(b.customer) || '').toLowerCase();
+        if (nameA < nameB) return sortNameAsc ? -1 : 1;
+        if (nameA > nameB) return sortNameAsc ? 1 : -1;
+        return 0;
+    });
+    renderTableRows(displayedSubscribers);
+    showToast(sortNameAsc ? "تم الترتيب تصاعدياً حسب الاسم" : "تم الترتيب تنازلياً حسب الاسم");
+}
+
+let sortPowerDesc = true;
+function sortSubscribersByPower() {
+    sortPowerDesc = !sortPowerDesc;
+    displayedSubscribers.sort((a, b) => {
+        const powerA = a.rxPower !== undefined && a.rxPower !== null ? Number(a.rxPower) : -999;
+        const powerB = b.rxPower !== undefined && b.rxPower !== null ? Number(b.rxPower) : -999;
+        return sortPowerDesc ? powerB - powerA : powerA - powerB;
+    });
+    renderTableRows(displayedSubscribers);
+    showToast(sortPowerDesc ? "ترتيب حسب البور (تصاعدي)" : "ترتيب حسب البور (تنازلي)");
 }
 
 // عرض ملف العميل الشامل
@@ -457,6 +488,11 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
 
     const customerSubs = customerData?.customerSubscriptions || [];
     const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
+
+    // حفظ قيمة البور في المشترك لتمكين الترتيب منها في الجدول إن وجد
+    if (ontData?.model?.rxPower !== undefined) {
+        sub.rxPower = ontData.model.rxPower;
+    }
 
     container.innerHTML += formatSessionDetails(matchedSub);
 
@@ -579,7 +615,6 @@ async function loadAgents() {
     }
 }
 
-// دالة جلب وعرض تذاكر الدعم الفني بناءً على الهيكل الجديد
 async function loadTickets() {
     const list = document.getElementById('tickets-list');
     if (!list) return;
@@ -626,7 +661,6 @@ async function loadTickets() {
     }
 }
 
-// دالة جلب وعرض المهام والطلبات (Onboarding Requests) بناءً على الهيكل الجديد
 async function loadRequestsTasks() {
     const list = document.getElementById('tasks-list');
     if (!list) return;
