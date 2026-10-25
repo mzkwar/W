@@ -54,7 +54,7 @@ app.post('/api/ftth/login', async (req, res) => {
     }
 });
 
-// الاشتراكات العامة
+// قائمة الاشتراكات العامة
 app.get('/api/ftth/subscriptions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -69,7 +69,7 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
     }
 });
 
-// تفاصيل جهاز ONT المطابقة لهيكل الاستجابة الخاص بك
+// تفاصيل الـ ONT حسب الـ Username
 app.get('/api/ftth/ont', async (req, res) => {
     const token = req.headers.authorization;
     const username = req.query.username;
@@ -94,12 +94,12 @@ app.get('/api/ftth/customer/:id', async (req, res) => {
     try {
         const [custRes, subsRes] = await Promise.all([
             axios.get(`https://admin.ftth.iq/api/customers/${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: {} })),
-            axios.get(`https://admin.ftth.iq/api/customers/subscriptions?customerId=${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: [] }))
+            axios.get(`https://admin.ftth.iq/api/customers/subscriptions?customerId=${customerId}`, { headers: { 'Authorization': token, 'Accept': 'application/json' } }).catch(() => ({ data: {} }))
         ]);
 
         res.json({
             customer: custRes.data.model || custRes.data,
-            customerSubscriptions: subsRes.data.items || subsRes.data
+            customerSubscriptions: subsRes.data.items || subsRes.data.model || []
         });
     } catch (error) {
         res.status(500).json({ error: "تعذر جلب بيانات العميل" });
