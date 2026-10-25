@@ -188,16 +188,25 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// دالة شمولية لاستخراج البور بأي شكل إرجاع من الباك إند
+// دالة شمولية وموسعة لاستخراج قيمة البور من أي هيكل بيانات محتمل
 function parseRxPower(data) {
     if (!data) return null;
     let val = null;
+    
+    // البحث في خصائص كائن مودل
     if (data.model !== undefined && data.model !== null) {
-        val = data.model.rxPower ?? data.model.rx_power ?? data.model.power ?? data.model;
+        if (typeof data.model === 'object') {
+            val = data.model.rxPower ?? data.model.rx_power ?? data.model.power ?? data.model.RxPower ?? data.model.opticalPower;
+        } else {
+            val = data.model;
+        }
     }
-    if (val === null || typeof val === 'object') {
-        val = data.rxPower ?? data.rx_power ?? data.power ?? data.RxPower;
+    
+    // البحث المباشر في البيانات أو deviceDetails
+    if (val === null || val === undefined || isNaN(Number(val))) {
+        val = data.rxPower ?? data.rx_power ?? data.power ?? data.RxPower ?? data.opticalPower ?? data.deviceDetails?.rxPower;
     }
+
     if (val !== null && val !== undefined && !isNaN(Number(val))) {
         return Number(val);
     }
@@ -240,8 +249,19 @@ async function loadSubscribersFast() {
         const subData = await res.json();
         cachedSubscribers = Array.isArray(subData) ? subData : (subData.items || subData.subscribers || subData.data || []);
         
+        // استخراج البور المدمج في الاشتراكات أولاً (إن وجد)
+        cachedSubscribers.forEach(sub => {
+            const username = cleanUsername(sub.username || sub.id);
+            const embeddedPower = parseRxPower(sub);
+            if (embeddedPower !== null) {
+                subscribersPowerCache[username] = embeddedPower;
+            }
+        });
+
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
+        
+        // جلب بقية البورات في الخلفية للمشتركين الذين لم تتوفر قيمهم
         fetchSubscribersPowerInBackground(cachedSubscribers);
     } catch (err) {
         console.error(err);
@@ -251,7 +271,7 @@ async function loadSubscribersFast() {
 async function fetchSubscribersPowerInBackground(items) {
     for (let sub of items) {
         const username = cleanUsername(sub.username || sub.id);
-        if (subscribersPowerCache[username] === undefined) {
+        if (subscribersPowerCache[username] === undefined || subscribersPowerCache[username] === null) {
             try {
                 const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
                 if (res.ok) {
@@ -280,7 +300,7 @@ function updateSubscriberPowerCell(username) {
             powerEl.innerText = `${val} dBm`;
         } else {
             powerEl.className = `text-slate-400 text-xs font-mono`;
-            powerEl.innerText = 'غير متاح';
+            powerEl.innerText = 'غير متوفرة';
         }
     }
 }
@@ -373,7 +393,7 @@ function renderTableRows(items) {
                 else if (powerVal < -23) color = 'text-amber-500';
                 powerDisplay = `<span id="power-cell-${username}" class="font-mono font-bold ${color} dir-ltr">${powerVal} dBm</span>`;
             } else {
-                powerDisplay = `<span id="power-cell-${username}" class="text-slate-400 text-xs font-mono">غير متاح</span>`;
+                powerDisplay = `<span id="power-cell-${username}" class="text-slate-400 text-xs font-mono">غير متوفرة</span>`;
             }
         }
 
@@ -440,7 +460,7 @@ function sortSubscribersByPower() {
     showToast(sortPowerDesc ? "تم الترتيب من الأقوى للأضعف حسب البور" : "تم الترتيب من الأضعف للأقوى حسب البور");
 }
 
-// ملف المشترك الشامل مع العرض الفوري والواضح لقوة البور
+// ملف المشترك الشامل مع العرض الفوري والدقيق لقوة البور
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -506,12 +526,11 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const model = ontData?.model || ontData || {};
     let statusText = model.status?.displayValue || model.status || 'Up';
     
-    // استخراج البور بدقة
-    let rxPowerParsed = parseRxPower(ontData);
-    let rxPowerVal = rxPowerParsed !== null ? `${rxPowerParsed} dBm` : (subscribersPowerCache[username] !== undefined && subscribersPowerCache[username] !== null ? `${subscribersPowerCache[username]} dBm` : 'غير متوفرة');
+    // استخراج البور بدقة من جميع المصادر الممكنة (ONT أو الاشتراكات)
+    let rxPowerParsed = parseRxPower(ontData) ?? parseRxPower(matchedSub) ?? subscribersPowerCache[username];
+    let rxPowerVal = rxPowerParsed !== null && !isNaN(rxPowerParsed) ? `${rxPowerParsed} dBm` : 'غير متوفرة';
     
-    // تحديث الكاش بالقيم المستخرجة حديثاً
-    if (rxPowerParsed !== null) {
+    if (rxPowerParsed !== null && !isNaN(rxPowerParsed)) {
         subscribersPowerCache[username] = rxPowerParsed;
         updateSubscriberPowerCell(username);
     }
