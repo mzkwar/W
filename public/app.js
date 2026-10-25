@@ -48,7 +48,7 @@ function showToast(message, type = 'info') {
 
 function handleAuthError(res) {
     if (res.status === 401) {
-        showToast("انتهت صلاحية الجلسة أو التوكن غير صالح، يرجى تسجيل الدخول مجدداً", "error");
+        showToast("انتهت صلاحية الجلسة، يرجى إعادة تسجيل الدخول", "error");
         logout();
         return true;
     }
@@ -72,7 +72,7 @@ function getAccountIdFromToken(token) {
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
-    btn.innerText = 'جاري الاتصال وجلب البيانات...';
+    btn.innerText = 'جاري الاتصال...';
     btn.disabled = true;
 
     try {
@@ -177,7 +177,7 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// معالجة بيانات الـ ONT بناءً على هيكل الـ JSON المطلوب
+// عرض بيانات الـ ONT المتقدمة (تشمل السيريال نبر والبور والـ MAC)
 function formatOntData(ontData) {
     if (!ontData) return '<p class="text-slate-400 text-xs">لا توجد معلومات ONT متاحة</p>';
     
@@ -191,9 +191,14 @@ function formatOntData(ontData) {
     }
     
     let rxPowerVal = ontData.rxPower !== undefined && ontData.rxPower !== null ? ontData.rxPower : 'غير متوفرة';
+    let serialNum = ontData.serialNumber || ontData.sn || ontData.mac || ontData.id || 'غير معروف';
 
     let html = `
         <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/50 space-y-2 text-xs">
+            <div class="flex justify-between items-center">
+                <span class="text-indigo-300 font-medium">الرقم التسلسلي (SN ONT):</span>
+                <span class="font-bold text-white font-mono dir-ltr">${serialNum}</span>
+            </div>
             <div class="flex justify-between items-center">
                 <span class="text-indigo-300 font-medium">الحالة:</span>
                 <span class="font-bold text-emerald-400">${statusText}</span>
@@ -205,7 +210,7 @@ function formatOntData(ontData) {
     `;
 
     for (const [k, v] of Object.entries(ontData)) {
-        if (k !== 'status' && k !== 'rxPower' && typeof v !== 'object' && v !== null) {
+        if (!['status', 'rxPower', 'serialNumber', 'sn'].includes(k) && typeof v !== 'object' && v !== null) {
             html += `
                 <div class="flex justify-between items-center pt-1 border-t border-indigo-900/40">
                     <span class="text-slate-400">${k}:</span>
@@ -339,7 +344,6 @@ function filterOnlineStatus(mode) {
     }
 }
 
-// عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام أو أقل
 function filterExpiringSoon() {
     const now = new Date();
     const filtered = cachedSubscribers.filter(sub => {
@@ -351,7 +355,6 @@ function filterExpiringSoon() {
     showToast(`عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام (${filtered.length})`);
 }
 
-// فرز حسب تاريخ التفعيل
 function filterByActivationDate() {
     const val = document.getElementById('filter-activation-date').value;
     if (!val) {
@@ -422,7 +425,7 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// عرض بيانات المشترك في صفحة منفصلة مع جلب رقم الهاتف والإحداثيات
+// فتح التفاصيل مع تجميع كافة البيانات (رقم الهاتف، SN ONT، الإحداثيات)
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -436,7 +439,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const detailPage = document.getElementById('subscriber-detail-page');
     const container = document.getElementById('detail-content-card');
     
-    container.innerHTML = `<p class="text-center text-slate-400 py-12 animate-pulse">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
+    container.innerHTML = `<p class="text-center text-slate-400 py-12 animate-pulse">جاري جلب ملف العميل الشامل وبور الـ ONT والرقم التسلسلي...</p>`;
     detailPage.classList.remove('hidden');
 
     let customerData = null;
@@ -456,18 +459,18 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
 
     container.innerHTML = '';
 
-    // جلسة الاتصال وتاريخ البدء
+    // 1. تفاصيل جلسة الاتصال وتاريخ البدء
     container.innerHTML += formatSessionDetails(sub);
 
-    // معلومات الـ ONT المحسنة
+    // 2. تفاصيل الـ ONT والرقم التسلسلي (SN ONT)
     if (ontData) {
-        container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT</div>`;
+        container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT واختبار الإشارة</div>`;
         container.innerHTML += formatOntData(ontData);
     }
 
-    // استخراج الهاتف والإحداثيات بدقة من الـ API المضمن
+    // 3. استخراج رقم الهاتف والموقع على الخريطة
     const custObj = customerData?.customer || {};
-    let phoneNum = custObj.phone || custObj.mobile || custObj.phoneNumber || custObj.contactNumber || sub.phone || sub.mobile || 'غير متوفر';
+    let phoneNum = custObj.phone || custObj.mobile || custObj.phoneNumber || custObj.contactNumber || sub.phone || sub.mobile || 'غير مسجل';
     let lat = custObj.latitude || custObj.lat || sub.latitude;
     let lng = custObj.longitude || custObj.lng || sub.longitude;
 
@@ -487,6 +490,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     contactMapHtml += `</div>`;
     container.innerHTML += contactMapHtml;
 
+    // 4. بيانات الاشتراك الأساسية
     const excludedFields = [
         'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
         'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
