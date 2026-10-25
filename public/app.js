@@ -1,7 +1,6 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
 let displayedSubscribers = [];
-let subscribersPowerCache = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -435,12 +434,12 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     personalLocationHtml += `</div>`;
     container.innerHTML += personalLocationHtml;
 
-    // استخراج بيانات الـ ONT وبقوة البور منontData.model.rxPower مباشرة بدقة
+    // استخراج البور بدقة مطابقة تماماً لهيكل الاستجابة (ontData.model.rxPower)
     const model = ontData?.model || ontData || {};
     let statusText = model.status?.displayValue || model.status || 'Up';
     
     let rawRxPower = ontData?.model?.rxPower ?? ontData?.rxPower ?? model.rxPower;
-    let rxPowerVal = (rawRxPower !== null && rawRxPower !== undefined && !isNaN(Number(rawRxPower))) ? `${rawRxPower} dBm` : 'غير متوفرة';
+    let rxPowerVal = (rawRxPower !== null && rawRxPower !== undefined && !isNaN(Number(rawRxPower))) ? `${Number(rawRxPower)} dBm` : 'غير متوفرة';
 
     let serialNum = matchedSub.deviceDetails?.serial || model.serialNumber || model.sn || 'غير معروف';
     let fdtVal = extractValue(matchedSub.deviceDetails?.fdt) || 'غير متاح';
