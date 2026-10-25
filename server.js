@@ -54,24 +54,22 @@ app.post('/api/ftth/login', async (req, res) => {
     }
 });
 
+// 1. جلب الاشتراكات العامة
 app.get('/api/ftth/subscriptions', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/subscriptions?hierarchyLevel=0', {
-            headers: { 
-                'Authorization': token,
-                'Accept': 'application/json'
-            }
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
     } catch (error) {
-        console.error("خطأ جلب الاشتراكات:", error.response?.data || error.message);
-        res.status(error.response?.status || 500).json({ error: "تعذر جلب الاشتراكات من المنظومة الرئيسية", details: error.response?.data });
+        res.status(error.response?.status || 500).json({ error: "تعذر جلب الاشتراكات" });
     }
 });
 
+// 2. جلب تفاصيل جهاز الـ ONT
 app.get('/api/ftth/ont', async (req, res) => {
     const token = req.headers.authorization;
     const username = req.query.username;
@@ -79,10 +77,7 @@ app.get('/api/ftth/ont', async (req, res) => {
 
     try {
         const response = await axios.get(`https://admin.ftth.iq/api/subscriptions/device/ont?username=${username}`, {
-            headers: { 
-                'Authorization': token,
-                'Accept': 'application/json'
-            }
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
     } catch (error) {
@@ -90,16 +85,61 @@ app.get('/api/ftth/ont', async (req, res) => {
     }
 });
 
+// 3. جلب بيانات عميل معين بالـ ID (مثل /api/customers/542203)
+app.get('/api/ftth/customer/:id', async (req, res) => {
+    const token = req.headers.authorization;
+    const customerId = req.params.id;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get(`https://admin.ftth.iq/api/customers/${customerId}`, {
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "تعذر جلب بيانات العميل" });
+    }
+});
+
+// 4. جلب رصيد المحفظة للشريك (Partner Wallet Balance)
+app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
+    const token = req.headers.authorization;
+    const partnerId = req.params.partnerId;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get(`https://admin.ftth.iq/api/partners/${partnerId}/wallets/balance`, {
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "تعذر جلب رصيد المحفظة" });
+    }
+});
+
+// 5. جلب المناطق (Zones)
+app.get('/api/ftth/zones', async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get('https://admin.ftth.iq/api/locations/zones', {
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "تعذر جلب المناطق" });
+    }
+});
+
+// 6. جلب التذاكر
 app.get('/api/ftth/tickets', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/support/tickets?pageSize=12&pageNumber=1&sortCriteria.property=createdAt&sortCriteria.direction=desc&hierarchyLevel=0&additionalFilter=ForMe', {
-            headers: { 
-                'Authorization': token,
-                'Accept': 'application/json'
-            }
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
     } catch (error) {
