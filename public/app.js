@@ -295,10 +295,52 @@ async function loadSubscribersFast() {
         
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
+        
+        // جلب البور تلقائياً بالخلفية بدون تجميد الواجهة
+        fetchPowerInBackround(cachedSubscribers);
+
     } catch (err) {
         console.error("خطأ في جلب البيانات:", err);
         const tbody = document.getElementById('subscribers-table-body');
         if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-500 font-bold">فشل جلب بيانات المشتركين</td></tr>`;
+    }
+}
+
+// دالة جلب البور بالخلفية وتحديث الخلية فور توفر البيانات
+async function fetchPowerInBackround(subscribers) {
+    // معالجة المشتركين على أجزاء لتجنب الضغط على السيرفر
+    const batchSize = 5;
+    for (let i = 0; i < subscribers.length; i += batchSize) {
+        const batch = subscribers.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (sub) => {
+            if (sub.rxPower !== undefined) return; // تم الجلب سابقاً
+
+            const username = cleanUsername(sub.username) || cleanUsername(sub.id);
+            if (!username || username === 'N/A') return;
+
+            try {
+                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
+                if (res.ok) {
+                    const ontData = await res.json();
+                    if (ontData?.model?.rxPower !== undefined) {
+                        sub.rxPower = ontData.model.rxPower;
+                        updatePowerCellInTable(username, sub.rxPower);
+                    }
+                }
+            } catch (e) {
+                // تظليل الخطأ بهدوء
+            }
+        }));
+    }
+}
+
+// تحديث خلية البور للمشترك داخل الجدول مباشرة فور وصولها
+function updatePowerCellInTable(username, powerValue) {
+    const el = document.getElementById(`power-${username}`);
+    if (el) {
+        el.innerText = `${powerValue} dBm`;
+        el.className = 'font-mono font-bold text-cyan-500 dir-ltr text-sm animate-pulse';
+        setTimeout(() => el.classList.remove('animate-pulse'), 1000);
     }
 }
 
@@ -399,9 +441,12 @@ function renderTableRows(items) {
         
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
         
-        // عرض البور فوراً مع جودة نصية ممتازة
-        const rxPowerVal = sub.rxPower !== undefined && sub.rxPower !== null ? `${sub.rxPower} dBm` : '0 dBm';
-        const powerDisplay = `<span class="font-mono font-bold text-slate-600 dark:text-slate-300 dir-ltr text-sm">${rxPowerVal}</span>`;
+        // البور يظهر مباشرة أو يُعرض بحالة "جاري الفحص..." وتحدث قيمته بالخلفية
+        const hasPower = sub.rxPower !== undefined && sub.rxPower !== null;
+        const rxPowerText = hasPower ? `${sub.rxPower} dBm` : 'جاري الفحص...';
+        const powerClass = hasPower ? 'text-cyan-500 font-bold' : 'text-slate-400 text-xs italic animate-pulse';
+
+        const powerDisplay = `<span id="power-${username}" class="font-mono dir-ltr text-sm ${powerClass}">${rxPowerText}</span>`;
 
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-100 dark:hover:bg-slate-800/60 transition cursor-pointer">
@@ -427,7 +472,6 @@ function renderTableRows(items) {
     });
 }
 
-// دالة تسريع البحث وتجنب تهنيج وتجمد الشاشة
 function debouncedFilterSubscribers() {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
@@ -445,7 +489,6 @@ function debouncedFilterSubscribers() {
     }, 150);
 }
 
-// أزرار الترتيب السريعة
 let sortNameAsc = true;
 function sortSubscribersByName() {
     sortNameAsc = !sortNameAsc;
@@ -532,6 +575,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
 
     if (ontData?.model?.rxPower !== undefined) {
         sub.rxPower = ontData.model.rxPower;
+        updatePowerCellInTable(username, sub.rxPower);
     }
 
     const custModel = customerData?.customer || {};
