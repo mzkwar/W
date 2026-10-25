@@ -79,7 +79,6 @@ app.get('/api/ftth/ont', async (req, res) => {
         });
         res.json(response.data);
     } catch (error) {
-        // محاولة مسار بديل في حال اختلاف الendpoint
         try {
             const altResponse = await axios.get(`https://admin.ftth.iq/api/subscriptions/ont?username=${username}`, {
                 headers: { 'Authorization': token, 'Accept': 'application/json' }
