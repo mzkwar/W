@@ -226,7 +226,6 @@ async function loadSubscribersFast() {
         
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
-        // تم إلغاء استدعاء فحص البور في الخلفية بناءً على طلبك
     } catch (err) {
         console.error(err);
     }
@@ -320,8 +319,7 @@ function renderTableRows(items) {
         const planType = getSubscriptionType(sub);
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
 
-        // جعل قيمة البور في القائمة 0 بناءً على طلبك
-        let powerDisplay = `<span class="font-mono font-bold text-slate-400 dir-ltr">0 dBm</span>`;
+        const powerDisplay = `<span class="font-mono font-bold text-slate-400 dir-ltr">0 dBm</span>`;
 
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition cursor-pointer">
@@ -437,9 +435,12 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     personalLocationHtml += `</div>`;
     container.innerHTML += personalLocationHtml;
 
+    // استخراج بيانات الـ ONT وبقوة البور منontData.model.rxPower مباشرة بدقة
     const model = ontData?.model || ontData || {};
     let statusText = model.status?.displayValue || model.status || 'Up';
-    let rxPowerVal = model.rxPower ?? model.rx_power ?? model.power ?? model.RxPower ?? 'غير متوفرة';
+    
+    let rawRxPower = ontData?.model?.rxPower ?? ontData?.rxPower ?? model.rxPower;
+    let rxPowerVal = (rawRxPower !== null && rawRxPower !== undefined && !isNaN(Number(rawRxPower))) ? `${rawRxPower} dBm` : 'غير متوفرة';
 
     let serialNum = matchedSub.deviceDetails?.serial || model.serialNumber || model.sn || 'غير معروف';
     let fdtVal = extractValue(matchedSub.deviceDetails?.fdt) || 'غير متاح';
@@ -450,7 +451,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
             <div class="text-indigo-600 dark:text-indigo-400 font-bold border-b border-borderLight dark:border-slate-700 pb-2">2. معلومات جهاز الـ ONT واختبار الإشارة</div>
             <div class="flex justify-between items-center"><span class="text-slate-500">الرقم التسلسلي (SN):</span><span class="font-bold font-mono dir-ltr">${serialNum}</span></div>
             <div class="flex justify-between items-center"><span class="text-slate-500">الحالة:</span><span class="font-bold text-emerald-500">${statusText}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-500">البور (Rx Power):</span><span class="font-bold font-mono text-indigo-500 dir-ltr">${rxPowerVal} dBm</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">البور (Rx Power):</span><span class="font-bold font-mono text-indigo-500 dir-ltr">${rxPowerVal}</span></div>
             <div class="flex justify-between items-center pt-1 border-t border-borderLight dark:border-slate-700"><span class="text-slate-500">FDT / FAT:</span><span>${fdtVal} / ${fatVal}</span></div>
         </div>
     `;
