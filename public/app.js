@@ -3,6 +3,10 @@ let cachedSubscribers = [];
 let displayedSubscribers = [];
 
 window.addEventListener('DOMContentLoaded', async () => {
+    // تطبيق الوضع الليلي / الفاتح من التفضيلات المحفوظة
+    const savedTheme = localStorage.getItem('ftth_theme') || 'dark';
+    applyTheme(savedTheme);
+
     if (authToken) {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('dashboard-screen').classList.remove('hidden');
@@ -27,6 +31,28 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+function applyTheme(theme) {
+    const htmlEl = document.documentElement;
+    const themeIcon = document.getElementById('theme-icon');
+    const themeText = document.getElementById('theme-text');
+    
+    if (theme === 'dark') {
+        htmlEl.classList.add('dark');
+        if (themeIcon) themeIcon.innerText = '🌙';
+        if (themeText) themeText.innerText = 'الداكن';
+    } else {
+        htmlEl.classList.remove('dark');
+        if (themeIcon) themeIcon.innerText = '☀️';
+        if (themeText) themeText.innerText = 'الفاتح';
+    }
+    localStorage.setItem('ftth_theme', theme);
+}
+
+function toggleTheme() {
+    const isDark = document.documentElement.classList.contains('dark');
+    applyTheme(isDark ? 'light' : 'dark');
+}
+
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     if (!container) {
@@ -38,10 +64,7 @@ function showToast(message, type = 'info') {
     toast.innerText = message;
     container.appendChild(toast);
     
-    setTimeout(() => {
-        toast.classList.remove('translate-y-[-20px]', 'opacity-0');
-    }, 10);
-
+    setTimeout(() => toast.classList.remove('translate-y-[-20px]', 'opacity-0'), 10);
     setTimeout(() => {
         toast.classList.add('translate-y-[-20px]', 'opacity-0');
         setTimeout(() => toast.remove(), 300);
@@ -111,10 +134,11 @@ function switchTab(tabName, title) {
     document.getElementById('header-title').innerText = title;
 
     document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.remove('text-indigo-400', 'font-bold');
+        btn.classList.remove('text-indigo-500', 'font-bold');
         btn.classList.add('text-slate-400');
     });
-    document.getElementById(`btn-${tabName}`).classList.add('text-indigo-400', 'font-bold');
+    const activeBtn = document.getElementById(`btn-${tabName}`);
+    if (activeBtn) activeBtn.classList.add('text-indigo-500', 'font-bold');
 }
 
 function extractValue(field) {
@@ -179,7 +203,7 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// عرض معلومات الـ ONT بدقة متناهية
+// عرض معلومات ONT المنسقة بوضوح واحترافية
 function formatOntData(ontData, subDeviceDetails) {
     const model = ontData?.model || ontData || {};
     let statusText = 'Up';
@@ -196,43 +220,49 @@ function formatOntData(ontData, subDeviceDetails) {
     let fdtVal = extractValue(subDeviceDetails?.fdt) || 'غير متاح';
     let fatVal = extractValue(subDeviceDetails?.fat) || 'غير متاح';
 
-    let html = `
-        <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/50 space-y-2 text-xs">
-            <div class="flex justify-between items-center">
-                <span class="text-indigo-300 font-medium">الرقم التسلسلي (SN ONT):</span>
-                <span class="font-bold text-white font-mono dir-ltr">${serialNum}</span>
+    return `
+        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
+            <div class="text-indigo-600 dark:text-indigo-400 font-bold border-b border-slate-200 dark:border-slate-700 pb-2 text-xs flex items-center gap-2">
+                📡 2. معلومات جهاز الـ ONT واختبار الإشارة
             </div>
-            <div class="flex justify-between items-center">
-                <span class="text-indigo-300 font-medium">الحالة:</span>
-                <span class="font-bold text-emerald-400">${statusText}</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="text-indigo-300 font-medium">البور (Rx Power):</span>
-                <span class="font-bold text-white dir-ltr">${rxPowerVal} dBm</span>
-            </div>
-            <div class="flex justify-between items-center pt-1 border-t border-indigo-900/40">
-                <span class="text-slate-400">FDT / FAT:</span>
-                <span class="text-white">${fdtVal} / ${fatVal}</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span class="text-slate-500 dark:text-slate-400">الرقم التسلسلي (SN):</span>
+                    <span class="font-bold font-mono dir-ltr text-indigo-500">${serialNum}</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span class="text-slate-500 dark:text-slate-400">حالة ONT:</span>
+                    <span class="font-bold text-emerald-500">${statusText}</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span class="text-slate-500 dark:text-slate-400">البور (Rx Power):</span>
+                    <span class="font-bold font-mono text-cyan-500 dir-ltr">${rxPowerVal} dBm</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span class="text-slate-500 dark:text-slate-400">FDT / FAT:</span>
+                    <span class="font-semibold">${fdtVal} / ${fatVal}</span>
+                </div>
             </div>
         </div>
     `;
-    return html;
 }
 
 function formatSessionDetails(sub) {
-    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 flex justify-between items-center text-xs"><span class="text-slate-400">تاريخ البدء:</span><span class="text-white font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
+    let startedHtml = sub.startedAt ? `<div class="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs"><span class="text-slate-500 dark:text-slate-400">تاريخ تفعيل الاشتراك:</span><span class="font-mono">${formatDateClean(sub.startedAt)}</span></div>` : '';
     
-    if (!sub.activeSession) return startedHtml + `<p class="text-slate-400 text-xs">لا توجد جلسة اتصال نشطة حالياً</p>`;
+    if (!sub.activeSession) {
+        return startedHtml + `<div class="bg-cardLight dark:bg-cardDark p-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-400 text-xs text-center">لا توجد جلسة اتصال نشطة حالياً</div>`;
+    }
 
     const session = sub.activeSession;
     return `
         ${startedHtml}
-        <div class="p-3 bg-blue-950/30 rounded-xl border border-blue-800/40 space-y-2 text-xs">
-            <div class="text-blue-400 font-bold border-b border-blue-900/50 pb-1">تفاصيل جلسة الاتصال النشطة</div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">وقت البدء:</span><span class="text-white">${formatDateClean(session.startedAt)}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">مدة الاتصال:</span><span class="text-white font-semibold">${formatDuration(session.sessionTimeInSeconds)}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">عنوان IP:</span><span class="text-white font-mono dir-ltr">${session.ipAddress || 'N/A'}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">عنوان MAC:</span><span class="text-white font-mono dir-ltr">${session.macAddress || 'N/A'}</span></div>
+        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-blue-500/30 shadow-sm space-y-2 text-xs">
+            <div class="text-blue-500 font-bold border-b border-blue-500/20 pb-2 flex items-center gap-2">🌐 تفاصيل جلسة الاتصال النشطة</div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400">وقت اتصال السيرفر:</span><span>${formatDateClean(session.startedAt)}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400">مدة الأونلاين الحالية:</span><span class="font-semibold text-emerald-500">${formatDuration(session.sessionTimeInSeconds)}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400">عنوان IP:</span><span class="font-mono dir-ltr text-indigo-500">${session.ipAddress || 'N/A'}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400">عنوان MAC:</span><span class="font-mono dir-ltr text-slate-400">${session.macAddress || 'N/A'}</span></div>
         </div>
     `;
 }
@@ -258,7 +288,7 @@ async function loadWalletBalance() {
             } else if (typeof walletData === 'number') {
                 balance = walletData;
             }
-            badge.innerText = `الرصيد: ${balance.toLocaleString()} دينار عراقي`;
+            badge.innerText = `الرصيد: ${balance.toLocaleString()} د.ع`;
         } else {
             badge.innerText = `الرصيد: متاح`;
         }
@@ -289,7 +319,7 @@ async function loadSubscribersFast() {
     } catch (err) {
         console.error("خطأ في جلب البيانات:", err);
         const tbody = document.getElementById('subscribers-table-body');
-        if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400">فشل جلب بيانات المشتركين</td></tr>`;
+        if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-500">فشل جلب بيانات المشتركين</td></tr>`;
     }
 }
 
@@ -362,17 +392,28 @@ function filterByActivationDate() {
         return started.startsWith(val);
     });
     renderTableRows(filtered);
-    showToast(`تم الفرز حسب تاريخ التفعيل: ${val}`);
+    showToast(`تصفية التفعيل بتاريخ: ${val}`);
+}
+
+function clearDateFilter() {
+    document.getElementById('filter-activation-date').value = '';
+    renderTableRows(cachedSubscribers);
+    showToast("تم إلغاء تصفية التاريخ وعرض كافة المشتركين");
 }
 
 function renderTableRows(items) {
     displayedSubscribers = items;
     const tbody = document.getElementById('subscribers-table-body');
+    const badge = document.getElementById('subscribers-count-badge');
+    
+    // تحديث عداد الجدول المتغير مع الفلترة والبحث
+    if (badge) badge.innerText = `العدد المعروض: ${items.length}`;
+
     if (!tbody) return;
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">لا توجد نتائج مطابقة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">لا توجد نتائج مطابقة للبحث أو التصفية</td></tr>`;
         return;
     }
 
@@ -385,28 +426,27 @@ function renderTableRows(items) {
         const planType = getSubscriptionType(sub);
         
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
-
-        const powerDisplay = `<span class="font-mono font-bold text-slate-400 dir-ltr">${sub.rxPower !== undefined && sub.rxPower !== null ? sub.rxPower + ' dBm' : '0 dBm'}</span>`;
+        const powerDisplay = `<span class="font-mono font-bold text-slate-500 dark:text-slate-400 dir-ltr">${sub.rxPower !== undefined && sub.rxPower !== null ? sub.rxPower + ' dBm' : '0 dBm'}</span>`;
 
         tbody.innerHTML += `
-            <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-700/40 transition cursor-pointer">
+            <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition cursor-pointer">
                 <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
                 <td class="p-3">
-                    <span class="font-bold text-indigo-400 block">${realCustomerName}</span>
-                    <span class="text-[10px] text-slate-400 font-mono">${username}</span>
+                    <span class="font-bold text-indigo-600 dark:text-indigo-400 block text-xs">${realCustomerName}</span>
+                    <span class="text-[10px] text-slate-500 font-mono">${username}</span>
                 </td>
                 <td class="p-3">${powerDisplay}</td>
                 <td class="p-3">
-                    <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+                    <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}">
                         ${isActive ? 'فعال' : 'منتهي'}
                     </span>
                 </td>
                 <td class="p-3">
-                    <span class="px-2 py-0.5 rounded text-[10px] ${isOnline ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-slate-400'}">
+                    <span class="px-2 py-0.5 rounded text-[10px] ${isOnline ? 'bg-blue-500/10 text-blue-500 font-bold' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}">
                         ${isOnline ? 'متصل' : 'غير متصل'}
                     </span>
                 </td>
-                <td class="p-3 text-slate-300 font-semibold">${planType}</td>
+                <td class="p-3 font-semibold text-slate-700 dark:text-slate-300">${planType}</td>
             </tr>
         `;
     });
@@ -426,6 +466,7 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
+// الترتيب حسب الاسم
 let sortNameAsc = true;
 function sortSubscribersByName() {
     sortNameAsc = !sortNameAsc;
@@ -440,6 +481,7 @@ function sortSubscribersByName() {
     showToast(sortNameAsc ? "تم الترتيب تصاعدياً حسب الاسم" : "تم الترتيب تنازلياً حسب الاسم");
 }
 
+// الترتيب حسب البور
 let sortPowerDesc = true;
 function sortSubscribersByPower() {
     sortPowerDesc = !sortPowerDesc;
@@ -449,10 +491,38 @@ function sortSubscribersByPower() {
         return sortPowerDesc ? powerB - powerA : powerA - powerB;
     });
     renderTableRows(displayedSubscribers);
-    showToast(sortPowerDesc ? "ترتيب حسب البور (تصاعدي)" : "ترتيب حسب البور (تنازلي)");
+    showToast(sortPowerDesc ? "ترتيب حسب البور (الأعلى أولاً)" : "ترتيب حسب البور (الأدنى أولاً)");
 }
 
-// عرض ملف العميل الشامل
+// الترتيب حسب حالة الاتصال (المتصل أولاً)
+let sortOnlineAsc = true;
+function sortSubscribersByOnlineStatus() {
+    sortOnlineAsc = !sortOnlineAsc;
+    displayedSubscribers.sort((a, b) => {
+        const onlineA = Boolean(a.hasActiveSession) ? 1 : 0;
+        const onlineB = Boolean(b.hasActiveSession) ? 1 : 0;
+        return sortOnlineAsc ? onlineB - onlineA : onlineA - onlineB;
+    });
+    renderTableRows(displayedSubscribers);
+    showToast(sortOnlineAsc ? "عرض المشتركين المتصلين في البداية" : "عرض المشتركين غير المتصلين في البداية");
+}
+
+// الترتيب حسب نوع الاشتراك (الباقة)
+let sortPlanAsc = true;
+function sortSubscribersByPlanType() {
+    sortPlanAsc = !sortPlanAsc;
+    displayedSubscribers.sort((a, b) => {
+        const planA = getSubscriptionType(a).toLowerCase();
+        const planB = getSubscriptionType(b).toLowerCase();
+        if (planA < planB) return sortPlanAsc ? -1 : 1;
+        if (planA > planB) return sortPlanAsc ? 1 : -1;
+        return 0;
+    });
+    renderTableRows(displayedSubscribers);
+    showToast("تم ترتيب المشتركين حسب نوع الباقة والاشتراك");
+}
+
+// عرض ملف العميل الشامل المنسق والمصمم باحترافية
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -466,7 +536,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const detailPage = document.getElementById('subscriber-detail-page');
     const container = document.getElementById('detail-content-card');
     
-    container.innerHTML = `<p class="text-center text-slate-400 py-12 animate-pulse">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
+    container.innerHTML = `<p class="text-center text-slate-400 py-16 animate-pulse font-bold text-sm">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
     detailPage.classList.remove('hidden');
 
     let customerData = null;
@@ -489,15 +559,10 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const customerSubs = customerData?.customerSubscriptions || [];
     const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
 
-    // حفظ قيمة البور في المشترك لتمكين الترتيب منها في الجدول إن وجد
+    // حفظ قيمة البور في الكاش للاستفادة منها في الفرز في الجدول
     if (ontData?.model?.rxPower !== undefined) {
         sub.rxPower = ontData.model.rxPower;
     }
-
-    container.innerHTML += formatSessionDetails(matchedSub);
-
-    container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT واختبار الإشارة</div>`;
-    container.innerHTML += formatOntData(ontData, matchedSub.deviceDetails);
 
     const custModel = customerData?.customer || {};
     const primaryContact = custModel.primaryContact || {};
@@ -510,23 +575,33 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     let lng = gps.longitude || sub.longitude;
     let addressDisplay = primaryAddress.displayValue || 'العنوان غير متوفر';
 
+    // 1. قسم معلومات الاتصال والموقع
     let contactMapHtml = `
-        <div class="p-3 bg-slate-800 rounded-xl border border-slate-700/60 space-y-2 text-xs">
-            <div class="text-amber-400 font-bold border-b border-slate-700 pb-1">معلومات الاتصال والموقع الجغرافي</div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">رقم الهاتف:</span><a href="tel:${phoneNum}" class="text-emerald-400 font-bold dir-ltr">${phoneNum}</a></div>
-            <div class="flex justify-between items-center"><span class="text-slate-400">العنوان:</span><span class="text-white">${addressDisplay}</span></div>
+        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 text-xs">
+            <div class="text-amber-500 font-bold border-b border-slate-200 dark:border-slate-700 pb-2 flex items-center gap-2">
+                📍 1. البيانات الشخصية والموقع الجغرافي
+            </div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400">رقم الهاتف:</span><a href="tel:${phoneNum}" class="text-emerald-500 font-bold dir-ltr">${phoneNum}</a></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400">العنوان المسجل:</span><span class="font-medium">${addressDisplay}</span></div>
     `;
     if (lat && lng) {
         contactMapHtml += `
-            <div class="flex justify-between items-center"><span class="text-slate-400">الإحداثيات:</span><span class="text-white font-mono dir-ltr">${lat}, ${lng}</span></div>
-            <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="block w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg font-bold mt-2">فتح الموقع على خريطة جوجل (Google Maps)</a>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400">الإحداثيات الجغرافية:</span><span class="font-mono dir-ltr text-indigo-500">${lat}, ${lng}</span></div>
+            <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="block w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl font-bold mt-2 shadow-sm transition">🗺️ فتح الموقع على خرائط جوجل (Google Maps)</a>
         `;
     } else {
-        contactMapHtml += `<div class="text-slate-500 text-center py-1">الإحداثيات الجغرافية غير متوفرة لهذا المشترك</div>`;
+        contactMapHtml += `<div class="text-slate-400 text-center py-1">الإحداثيات الجغرافية غير متوفرة لهذا المشترك</div>`;
     }
     contactMapHtml += `</div>`;
     container.innerHTML += contactMapHtml;
 
+    // 2. قسم بيانات ONT والإشارة
+    container.innerHTML += formatOntData(ontData, matchedSub.deviceDetails);
+
+    // 3. قسم تفاصيل الجلسة
+    container.innerHTML += formatSessionDetails(matchedSub);
+
+    // 4. قسم بيانات الاشتراك الأساسية
     const excludedFields = [
         'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
         'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
@@ -536,18 +611,23 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const keyLabels = {
         'customer': 'اسم المشترك',
         'username': 'اسم المستخدم',
-        'partner': 'الوكيل',
+        'partner': 'الوكيل المسؤول',
         'status': 'حالة الاشتراك',
         'expires': 'تاريخ الانتهاء',
         'expirationDate': 'تاريخ الانتهاء',
-        'package': 'الباقة',
+        'package': 'الباقة المفعلة',
         'self': 'نوع الإشتراك',
         'salesType': 'نوع الإشتراك',
         'autoRenew': 'التجديد التلقائي',
         'hasActiveSession': 'حالة الاتصال'
     };
 
-    let baseInfoHtml = `<div class="space-y-2 pt-2"><div class="text-emerald-400 font-bold pb-1 border-b border-slate-700">بيانات الاشتراك الأساسية</div>`;
+    let baseInfoHtml = `
+        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 text-xs">
+            <div class="text-emerald-500 font-bold border-b border-slate-200 dark:border-slate-700 pb-2 flex items-center gap-2">📄 4. بيانات الاشتراك الأساسية والخدمة</div>
+            <div class="space-y-2">
+    `;
+    
     for (const [key, value] of Object.entries(matchedSub)) {
         if (excludedFields.includes(key)) continue;
 
@@ -569,13 +649,13 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
         }
 
         baseInfoHtml += `
-            <div class="flex justify-between items-center p-2.5 bg-slate-800 rounded-xl border border-slate-700/60 text-xs">
-                <span class="text-slate-400 font-medium">${labelName}</span>
-                <span class="text-white font-semibold text-left dir-ltr break-all max-w-[200px]">${displayVal}</span>
+            <div class="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                <span class="text-slate-500 dark:text-slate-400 font-medium">${labelName}</span>
+                <span class="font-semibold text-left dir-ltr break-all max-w-[200px]">${displayVal}</span>
             </div>
         `;
     }
-    baseInfoHtml += `</div>`;
+    baseInfoHtml += `</div></div>`;
     container.innerHTML += baseInfoHtml;
 }
 
@@ -600,9 +680,9 @@ async function loadAgents() {
 
         if(list) {
             list.innerHTML = agents.map(a => `
-                <div class="flex justify-between items-center p-2.5 bg-slate-900 rounded-xl border border-slate-700">
-                    <div><p class="text-xs font-bold text-white">${a.name}</p><p class="text-[10px] text-slate-400">${a.username}</p></div>
-                    <span class="text-[10px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
+                <div class="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div><p class="text-xs font-bold">${a.name}</p><p class="text-[10px] text-slate-500">${a.username}</p></div>
+                    <span class="text-[10px] bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
                 </div>
             `).join('');
         }
@@ -643,21 +723,21 @@ async function loadTickets() {
             const dateStr = formatDateClean(t.createdAt);
 
             return `
-                <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+                <div class="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
                     <div class="flex justify-between items-center">
-                        <span class="font-bold text-indigo-400">تذكرة #${ticketDisplayId} (${subject})</span>
-                        <span class="px-2 py-0.5 rounded ${status === 'Closed' || status === 'Resolved' ? 'bg-slate-800 text-slate-400' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">${status}</span>
+                        <span class="font-bold text-indigo-500">تذكرة #${ticketDisplayId} (${subject})</span>
+                        <span class="px-2 py-0.5 rounded ${status === 'Closed' || status === 'Resolved' ? 'bg-slate-200 dark:bg-slate-800 text-slate-500' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}">${status}</span>
                     </div>
-                    <p class="text-white bg-slate-800 p-2 rounded-lg">${summary}</p>
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800 gap-1">
-                        <span>المشترك: <strong class="text-slate-300">${customerName}</strong> | النطاق: ${zoneName}</span>
+                    <p class="bg-cardLight dark:bg-cardDark p-2 rounded-lg">${summary}</p>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-[10px] text-slate-500 pt-1 border-t border-slate-200 dark:border-slate-800 gap-1">
+                        <span>المشترك: <strong class="text-slate-700 dark:text-slate-300">${customerName}</strong> | النطاق: ${zoneName}</span>
                         <span>التاريخ: ${dateStr}</span>
                     </div>
                 </div>
             `;
         }).join('');
     } catch (e) {
-        list.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">تعذر جلب التذاكر</p>`;
+        list.innerHTML = `<p class="text-xs text-rose-500 text-center py-4">تعذر جلب التذاكر</p>`;
     }
 }
 
@@ -689,24 +769,24 @@ async function loadRequestsTasks() {
             const dateStr = formatDateClean(req.createdAt);
 
             return `
-                <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+                <div class="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
                     <div class="flex justify-between items-center">
-                        <span class="font-bold text-amber-400">طلب تنصيب (كود: ${installCode})</span>
-                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">${statusVal}</span>
+                        <span class="font-bold text-amber-500">طلب تنصيب (كود: ${installCode})</span>
+                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">${statusVal}</span>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-800 p-2 rounded-lg text-slate-300">
-                        <div>اسم المشترك: <strong class="text-white">${customerName}</strong></div>
-                        <div>رقم الهاتف: <a href="tel:${mobile}" class="text-emerald-400 font-bold dir-ltr">${mobile}</a></div>
-                        <div>النطاق (Zone): <span class="text-white">${zoneName}</span></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-cardLight dark:bg-cardDark p-2 rounded-lg">
+                        <div>اسم المشترك: <strong class="text-indigo-500">${customerName}</strong></div>
+                        <div>رقم الهاتف: <a href="tel:${mobile}" class="text-emerald-500 font-bold dir-ltr">${mobile}</a></div>
+                        <div>النطاق (Zone): <span>${zoneName}</span></div>
                     </div>
-                    <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800">
+                    <div class="flex justify-between items-center text-[10px] text-slate-500 pt-1 border-t border-slate-200 dark:border-slate-800">
                         <span>تاريخ الإنشاء: ${dateStr}</span>
                     </div>
                 </div>
             `;
         }).join('');
     } catch (e) {
-        list.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">تعذر جلب المهام الفنية</p>`;
+        list.innerHTML = `<p class="text-xs text-rose-500 text-center py-4">تعذر جلب المهام الفنية</p>`;
     }
 }
 
