@@ -156,7 +156,6 @@
                                 <span class="text-[10px] text-slate-500 whitespace-nowrap">تاريخ:</span>
                                 <input type="date" id="filter-activation-date" onchange="filterByActivationDate()" class="bg-transparent text-xs focus:outline-none">
                             </div>
-                            <button onclick="renderPowerRankingModal()" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap">⚡ ترتيب البورات</button>
                         </div>
                     </div>
 
@@ -165,8 +164,8 @@
                             <thead class="bg-slate-100 dark:bg-slate-900 text-slate-500">
                                 <tr>
                                     <th class="p-3"><input type="checkbox" id="select-all"></th>
-                                    <th class="p-3">المشترك / اسم المستخدم</th>
-                                    <th class="p-3">قوة البور (Rx Power)</th>
+                                    <th class="p-3 cursor-pointer hover:text-indigo-500 select-none" onclick="sortSubscribersByName()" title="انقر للترتيب حسب الاسم">المشترك / اسم المستخدم ↕</th>
+                                    <th class="p-3 cursor-pointer hover:text-indigo-500 select-none" onclick="sortSubscribersByPower()" title="انقر للترتيب حسب البور">قوة البور (Rx Power) ↕</th>
                                     <th class="p-3">حالة الاشتراك</th>
                                     <th class="p-3">الاتصال</th>
                                     <th class="p-3">نوع الإشتراك</th>
@@ -228,18 +227,6 @@
                 </div>
             </div>
             <div id="detail-content-card" class="space-y-4 pb-12 max-w-3xl mx-auto w-full"></div>
-        </div>
-
-        <!-- مودال ترتيب البورات -->
-        <div id="power-ranking-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 p-4 flex items-center justify-center">
-            <div class="bg-cardLight dark:bg-cardDark border border-borderLight dark:border-slate-700 w-full max-w-2xl rounded-2xl p-4 space-y-4 max-h-[85vh] flex flex-col shadow-2xl">
-                <div class="flex justify-between items-center border-b border-borderLight dark:border-slate-700 pb-3">
-                    <h3 class="text-sm font-bold text-cyan-600 dark:text-cyan-400">⚡ ترتيب المشتركين حسب قوة الإشارة (Rx Power)</h3>
-                    <button onclick="closePowerRankingModal()" class="text-rose-500 text-xs font-bold px-2 py-1 rounded bg-rose-500/10">إغلاق</button>
-                </div>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400">ملاحظة: الترتيب تصاعدي للأقوى (مثال: -22 أفضل من -24، و-24 أفضل من -27).</p>
-                <div id="power-ranking-list" class="space-y-2 overflow-y-auto flex-1"></div>
-            </div>
         </div>
 
         <!-- شريط التنقل السفلي -->
