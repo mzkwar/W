@@ -1,7 +1,6 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
 let displayedSubscribers = [];
-let subscribersPowerCache = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
     const savedTheme = localStorage.getItem('theme') || 'light';
@@ -188,25 +187,6 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-function parseRxPower(data) {
-    if (!data) return null;
-    let val = null;
-    if (data.model !== undefined && data.model !== null) {
-        if (typeof data.model === 'object') {
-            val = data.model.rxPower ?? data.model.rx_power ?? data.model.power ?? data.model.RxPower ?? data.model.opticalPower;
-        } else {
-            val = data.model;
-        }
-    }
-    if (val === null || val === undefined || isNaN(Number(val))) {
-        val = data.rxPower ?? data.rx_power ?? data.power ?? data.RxPower ?? data.opticalPower ?? data.deviceDetails?.rxPower;
-    }
-    if (val !== null && val !== undefined && !isNaN(Number(val))) {
-        return Number(val);
-    }
-    return null;
-}
-
 async function loadWalletBalance() {
     const badge = document.getElementById('wallet-badge');
     if (!badge) return;
@@ -243,56 +223,10 @@ async function loadSubscribersFast() {
         const subData = await res.json();
         cachedSubscribers = Array.isArray(subData) ? subData : (subData.items || subData.subscribers || subData.data || []);
         
-        cachedSubscribers.forEach(sub => {
-            const username = cleanUsername(sub.username || sub.id);
-            const embeddedPower = parseRxPower(sub);
-            if (embeddedPower !== null) {
-                subscribersPowerCache[username] = embeddedPower;
-            }
-        });
-
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
-        fetchSubscribersPowerInBackground(cachedSubscribers);
     } catch (err) {
         console.error(err);
-    }
-}
-
-async function fetchSubscribersPowerInBackground(items) {
-    for (let sub of items) {
-        const username = cleanUsername(sub.username || sub.id);
-        if (subscribersPowerCache[username] === undefined || subscribersPowerCache[username] === null) {
-            try {
-                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
-                if (res.ok) {
-                    const data = await res.json();
-                    subscribersPowerCache[username] = parseRxPower(data);
-                } else {
-                    subscribersPowerCache[username] = null;
-                }
-            } catch (e) {
-                subscribersPowerCache[username] = null;
-            }
-            updateSubscriberPowerCell(username);
-        }
-    }
-}
-
-function updateSubscriberPowerCell(username) {
-    const powerEl = document.getElementById(`power-cell-${username}`);
-    if (powerEl) {
-        const val = subscribersPowerCache[username];
-        if (val !== null && val !== undefined && !isNaN(val)) {
-            let color = 'text-emerald-500';
-            if (val < -27) color = 'text-rose-500';
-            else if (val < -23) color = 'text-amber-500';
-            powerEl.className = `font-mono font-bold ${color} dir-ltr`;
-            powerEl.innerText = `${val} dBm`;
-        } else {
-            powerEl.className = `text-slate-400 text-xs font-mono`;
-            powerEl.innerText = 'غير متوفرة';
-        }
     }
 }
 
@@ -384,18 +318,7 @@ function renderTableRows(items) {
         const planType = getSubscriptionType(sub);
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
 
-        const powerVal = subscribersPowerCache[username];
-        let powerDisplay = `<span id="power-cell-${username}" class="text-slate-400 text-[11px] animate-pulse">جاري الفحص...</span>`;
-        if (powerVal !== undefined) {
-            if (powerVal !== null && !isNaN(powerVal)) {
-                let color = 'text-emerald-500';
-                if (powerVal < -27) color = 'text-rose-500';
-                else if (powerVal < -23) color = 'text-amber-500';
-                powerDisplay = `<span id="power-cell-${username}" class="font-mono font-bold ${color} dir-ltr">${powerVal} dBm</span>`;
-            } else {
-                powerDisplay = `<span id="power-cell-${username}" class="text-slate-400 text-xs font-mono">غير متوفرة</span>`;
-            }
-        }
+        const powerDisplay = `<span class="font-mono font-bold text-slate-400 dir-ltr">0 dBm</span>`;
 
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition cursor-pointer">
@@ -445,21 +368,6 @@ function sortSubscribersByName() {
     showToast(sortNameAsc ? "تم الترتيب تصاعدياً حسب الاسم" : "تم الترتيب تنازلياً حسب الاسم");
 }
 
-let sortPowerDesc = true;
-function sortSubscribersByPower() {
-    sortPowerDesc = !sortPowerDesc;
-    displayedSubscribers.sort((a, b) => {
-        const userA = cleanUsername(a.username || a.id);
-        const userB = cleanUsername(b.username || b.id);
-        const powA = subscribersPowerCache[userA] !== undefined && subscribersPowerCache[userA] !== null ? subscribersPowerCache[userA] : -999;
-        const powB = subscribersPowerCache[userB] !== undefined && subscribersPowerCache[userB] !== null ? subscribersPowerCache[userB] : -999;
-
-        return sortPowerDesc ? powB - powA : powA - powB;
-    });
-    renderTableRows(displayedSubscribers);
-    showToast(sortPowerDesc ? "تم الترتيب من الأقوى للأضعف حسب البور" : "تم الترتيب من الأضعف للأقوى حسب البور");
-}
-
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -492,7 +400,6 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const customerSubs = customerData?.customerSubscriptions || [];
     const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
 
-    // 1. البيانات الشخصية والموقع أولاً
     const custModel = customerData?.customer || {};
     const primaryContact = custModel.primaryContact || {};
     const addresses = custModel.addresses || [];
@@ -521,17 +428,11 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     personalLocationHtml += `</div>`;
     container.innerHTML += personalLocationHtml;
 
-    // 2. معلومات الـ ONT ثانياً
     const model = ontData?.model || ontData || {};
     let statusText = model.status?.displayValue || model.status || 'Up';
     
-    let rxPowerParsed = parseRxPower(ontData) ?? parseRxPower(matchedSub) ?? subscribersPowerCache[username];
-    let rxPowerVal = rxPowerParsed !== null && !isNaN(rxPowerParsed) ? `${rxPowerParsed} dBm` : 'غير متوفرة';
-    
-    if (rxPowerParsed !== null && !isNaN(rxPowerParsed)) {
-        subscribersPowerCache[username] = rxPowerParsed;
-        updateSubscriberPowerCell(username);
-    }
+    let rawRxPower = ontData?.model?.rxPower ?? ontData?.rxPower ?? model.rxPower;
+    let rxPowerVal = (rawRxPower !== null && rawRxPower !== undefined && !isNaN(Number(rawRxPower))) ? `${Number(rawRxPower)} dBm` : 'غير متوفرة';
 
     let serialNum = matchedSub.deviceDetails?.serial || model.serialNumber || model.sn || 'غير معروف';
     let fdtVal = extractValue(matchedSub.deviceDetails?.fdt) || 'غير متاح';
@@ -547,7 +448,6 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
         </div>
     `;
 
-    // 3. التفاصيل الأخرى ثالثاً
     let sessionHtml = '';
     if (matchedSub.activeSession) {
         const session = matchedSub.activeSession;
