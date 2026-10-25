@@ -1,8 +1,9 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
-let displayedSubscribers = [];
+let subscribersPowerCache = {};
 
 window.addEventListener('DOMContentLoaded', async () => {
+    // تفعيل الوضع الافتراضي (الفاتح) أو المحفوظ
     const savedTheme = localStorage.getItem('theme') || 'light';
     if (savedTheme === 'dark') {
         document.documentElement.classList.add('dark');
@@ -16,23 +17,19 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('dashboard-screen').classList.remove('hidden');
         
-        try {
-            await Promise.allSettled([
-                loadSubscribersFast(),
-                loadWalletBalance(),
-                loadSessions(),
-                loadAgents(),
-                loadTickets(),
-                loadRequestsTasks()
-            ]);
-        } catch (e) {
-            console.error("Initialization warning:", e);
-        } finally {
-            const loader = document.getElementById('global-loader');
-            if (loader) {
-                loader.style.opacity = '0';
-                setTimeout(() => loader.remove(), 300);
-            }
+        await Promise.all([
+            loadSubscribersFast(),
+            loadWalletBalance(),
+            loadSessions(),
+            loadAgents(),
+            loadTickets(),
+            loadRequestsTasks()
+        ]);
+
+        const loader = document.getElementById('global-loader');
+        if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 300);
         }
     } else {
         const loader = document.getElementById('global-loader');
@@ -234,18 +231,13 @@ function updateGlobalStats(items) {
     let total = items.length;
     let active = 0;
     let online = 0;
-    let offline = 0;
     let expiringCount = 0;
     const now = new Date();
 
     items.forEach(sub => {
         const statusVal = extractValue(sub.status);
         if (sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال') active++;
-        if (Boolean(sub.hasActiveSession)) {
-            online++;
-        } else {
-            offline++;
-        }
+        if (Boolean(sub.hasActiveSession)) online++;
 
         const expDate = new Date(sub.expires || sub.expirationDate);
         const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
@@ -254,7 +246,6 @@ function updateGlobalStats(items) {
 
     document.getElementById('stat-total').innerText = total;
     document.getElementById('stat-online').innerText = online;
-    document.getElementById('stat-offline').innerText = offline;
     document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-expiring').innerText = expiringCount;
 }
@@ -263,9 +254,6 @@ function filterOnlineStatus(mode) {
     if (mode === 'online') {
         renderTableRows(cachedSubscribers.filter(s => Boolean(s.hasActiveSession)));
         showToast("عرض المشتركين المتصلين الآن");
-    } else if (mode === 'offline') {
-        renderTableRows(cachedSubscribers.filter(s => !Boolean(s.hasActiveSession)));
-        showToast("عرض المشتركين غير المتصلين");
     } else {
         renderTableRows(cachedSubscribers);
         showToast("عرض جميع المشتركين");
@@ -282,31 +270,13 @@ function filterExpiringSoon() {
     showToast(`عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام (${filtered.length})`);
 }
 
-function filterByActivationDate() {
-    const val = document.getElementById('filter-activation-date').value;
-    if (!val) {
-        renderTableRows(cachedSubscribers);
-        return;
-    }
-    const filtered = cachedSubscribers.filter(sub => {
-        const started = sub.startedAt || sub.createdAt || sub.activationDate || '';
-        return started.startsWith(val);
-    });
-    renderTableRows(filtered);
-    showToast(`تم الفرز حسب تاريخ التفعيل: ${val} (${filtered.length} مشترك)`);
-}
-
 function renderTableRows(items) {
-    displayedSubscribers = items;
     const tbody = document.getElementById('subscribers-table-body');
-    const countBadge = document.getElementById('subscribers-count-badge');
-    if (countBadge) countBadge.innerText = `العدد: ${items.length}`;
-
     if (!tbody) return;
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">لا توجد نتائج مطابقة</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">لا توجد نتائج مطابقة</td></tr>`;
         return;
     }
 
@@ -318,8 +288,6 @@ function renderTableRows(items) {
         const planType = getSubscriptionType(sub);
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
 
-        const powerDisplay = `<span class="font-mono font-bold text-slate-400 dir-ltr">0 dBm</span>`;
-
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition cursor-pointer">
                 <td class="p-3" onclick="event.stopPropagation()"><input type="checkbox" class="sub-check rounded" value="${username}"></td>
@@ -327,7 +295,6 @@ function renderTableRows(items) {
                     <span class="font-bold text-indigo-600 dark:text-indigo-400 block">${realCustomerName}</span>
                     <span class="text-[10px] text-slate-500 font-mono">${username}</span>
                 </td>
-                <td class="p-3">${powerDisplay}</td>
                 <td class="p-3">
                     <span class="px-2 py-0.5 rounded text-xs ${isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}">
                         ${isActive ? 'فعال' : 'منتهي'}
@@ -350,24 +317,70 @@ function filterSubscribers() {
         renderTableRows(cachedSubscribers);
         return;
     }
-    const filtered = cachedSubscribers.filter(sub => extractValue(sub.customer).toLowerCase().includes(query) || cleanUsername(sub.username || sub.id).toLowerCase().includes(query));
-    renderTableRows(filtered);
+    renderTableRows(cachedSubscribers.filter(sub => extractValue(sub.customer).toLowerCase().includes(query) || cleanUsername(sub.username || sub.id).toLowerCase().includes(query)));
 }
 
-let sortNameAsc = true;
-function sortSubscribersByName() {
-    sortNameAsc = !sortNameAsc;
-    displayedSubscribers.sort((a, b) => {
-        const nameA = (extractValue(a.customer) || '').toLowerCase();
-        const nameB = (extractValue(b.customer) || '').toLowerCase();
-        if (nameA < nameB) return sortNameAsc ? -1 : 1;
-        if (nameA > nameB) return sortNameAsc ? 1 : -1;
-        return 0;
-    });
-    renderTableRows(displayedSubscribers);
-    showToast(sortNameAsc ? "تم الترتيب تصاعدياً حسب الاسم" : "تم الترتيب تنازلياً حسب الاسم");
+// دالة جلب وترتيب البورات (من الأعلى إلى الأقل، مع مراعاة القيم السالبة)
+async function renderPowerRankingModal() {
+    const modal = document.getElementById('power-ranking-modal');
+    const listContainer = document.getElementById('power-ranking-list');
+    modal.classList.remove('hidden');
+    listContainer.innerHTML = `<p class="text-center text-slate-400 py-6 animate-pulse">جاري فحص وجلب إشارات البور للمشتركين...</p>`;
+
+    let powerDataList = [];
+    for (let sub of cachedSubscribers) {
+        const username = cleanUsername(sub.username || sub.id);
+        if (!subscribersPowerCache[username]) {
+            try {
+                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
+                if (res.ok) {
+                    const data = await res.json();
+                    const rx = data?.model?.rxPower !== undefined ? data.model.rxPower : (data?.rxPower !== undefined ? data.rxPower : null);
+                    subscribersPowerCache[username] = rx;
+                }
+            } catch (e) { subscribersPowerCache[username] = null; }
+        }
+        powerDataList.push({
+            name: extractValue(sub.customer) || 'غير محدد',
+            username: username,
+            rxPower: subscribersPowerCache[username],
+            customerId: sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id
+        });
+    }
+
+    // تصفية وترتيب البورات (الأعلى بالسالب تعني الأقرب للصفر، مثلاً -15 أعلى من -25)
+    const validPowerList = powerDataList.filter(item => item.rxPower !== null && item.rxPower !== undefined);
+    validPowerList.sort((a, b) => Number(b.rxPower) - Number(a.rxPower));
+
+    if (validPowerList.length === 0) {
+        listContainer.innerHTML = `<p class="text-center text-slate-500 py-6">لا توجد بيانات بور متاحة حالياً</p>`;
+        return;
+    }
+
+    listContainer.innerHTML = validPowerList.map((item, index) => {
+        let powerColor = 'text-emerald-500';
+        if (item.rxPower < -27) powerColor = 'text-rose-500';
+        else if (item.rxPower < -23) powerColor = 'text-amber-500';
+
+        return `
+            <div onclick="closePowerRankingModal(); openSubscriberDetailPage('${item.username}', '${item.customerId}')" class="p-3 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center cursor-pointer hover:border-cyan-500 transition text-xs">
+                <div>
+                    <span class="font-bold text-indigo-600 dark:text-indigo-400">#${index + 1} - ${item.name}</span>
+                    <span class="text-[10px] text-slate-500 block font-mono">${item.username}</span>
+                </div>
+                <div class="text-left font-mono font-bold ${powerColor} dir-ltr">
+                    ${item.rxPower} dBm
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
+function closePowerRankingModal() {
+    document.getElementById('power-ranking-modal').classList.add('hidden');
+}
+
+// فتح ملف المشترك بالترتيب المطلوب: (1) البيانات الشخصية والموقع ⬅️ (2) الـ ONT ⬅️ (3) التفاصيل الأخرى
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -400,6 +413,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const customerSubs = customerData?.customerSubscriptions || [];
     const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
 
+    // 1. القسم الأول: البيانات الشخصية والموقع
     const custModel = customerData?.customer || {};
     const primaryContact = custModel.primaryContact || {};
     const addresses = custModel.addresses || [];
@@ -412,8 +426,8 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     let addressDisplay = primaryAddress.displayValue || 'العنوان غير متوفر';
 
     let personalLocationHtml = `
-        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm space-y-3 text-xs">
-            <div class="text-amber-500 font-bold border-b border-borderLight dark:border-slate-700 pb-2">1. البيانات الشخصية والموقع الجغرافي</div>
+        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 text-xs">
+            <div class="text-amber-500 font-bold border-b border-slate-200 dark:border-slate-700 pb-2">1. البيانات الشخصية والموقع الجغرافي</div>
             <div class="flex justify-between items-center"><span class="text-slate-500">رقم الهاتف:</span><a href="tel:${phoneNum}" class="text-emerald-500 font-bold dir-ltr">${phoneNum}</a></div>
             <div class="flex justify-between items-center"><span class="text-slate-500">العنوان:</span><span class="font-medium">${addressDisplay}</span></div>
     `;
@@ -428,26 +442,25 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     personalLocationHtml += `</div>`;
     container.innerHTML += personalLocationHtml;
 
+    // 2. القسم الثاني: معلومات جهاز الـ ONT
     const model = ontData?.model || ontData || {};
     let statusText = model.status?.displayValue || model.status || 'Up';
-    
-    let rawRxPower = ontData?.model?.rxPower ?? ontData?.rxPower ?? model.rxPower;
-    let rxPowerVal = (rawRxPower !== null && rawRxPower !== undefined && !isNaN(Number(rawRxPower))) ? `${Number(rawRxPower)} dBm` : 'غير متوفرة';
-
+    let rxPowerVal = model.rxPower !== undefined && model.rxPower !== null ? model.rxPower : 'غير متوفرة';
     let serialNum = matchedSub.deviceDetails?.serial || model.serialNumber || model.sn || 'غير معروف';
     let fdtVal = extractValue(matchedSub.deviceDetails?.fdt) || 'غير متاح';
     let fatVal = extractValue(matchedSub.deviceDetails?.fat) || 'غير متاح';
 
     container.innerHTML += `
-        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm space-y-2 text-xs">
-            <div class="text-indigo-600 dark:text-indigo-400 font-bold border-b border-borderLight dark:border-slate-700 pb-2">2. معلومات جهاز الـ ONT واختبار الإشارة</div>
+        <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-2 text-xs">
+            <div class="text-indigo-600 dark:text-indigo-400 font-bold border-b border-slate-200 dark:border-slate-700 pb-2">2. معلومات جهاز الـ ONT واختبار الإشارة</div>
             <div class="flex justify-between items-center"><span class="text-slate-500">الرقم التسلسلي (SN):</span><span class="font-bold font-mono dir-ltr">${serialNum}</span></div>
             <div class="flex justify-between items-center"><span class="text-slate-500">الحالة:</span><span class="font-bold text-emerald-500">${statusText}</span></div>
-            <div class="flex justify-between items-center"><span class="text-slate-500">البور (Rx Power):</span><span class="font-bold font-mono text-indigo-500 dir-ltr">${rxPowerVal}</span></div>
-            <div class="flex justify-between items-center pt-1 border-t border-borderLight dark:border-slate-700"><span class="text-slate-500">FDT / FAT:</span><span>${fdtVal} / ${fatVal}</span></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500">البور (Rx Power):</span><span class="font-bold font-mono dir-ltr">${rxPowerVal} dBm</span></div>
+            <div class="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-slate-700"><span class="text-slate-500">FDT / FAT:</span><span>${fdtVal} / ${fatVal}</span></div>
         </div>
     `;
 
+    // 3. القسم الثالث: التفاصيل الأخرى (الجلسة والاشتراك)
     let sessionHtml = '';
     if (matchedSub.activeSession) {
         const session = matchedSub.activeSession;
@@ -461,8 +474,8 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
         `;
     }
 
-    let baseInfoHtml = `<div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-borderLight dark:border-slate-700 shadow-sm space-y-3 text-xs">
-        <div class="text-cyan-600 dark:text-cyan-400 font-bold border-b border-borderLight dark:border-slate-700 pb-2">3. التفاصيل الأخرى للاشتراك</div>
+    let baseInfoHtml = `<div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 text-xs">
+        <div class="text-cyan-600 dark:text-cyan-400 font-bold border-b border-slate-200 dark:border-slate-700 pb-2">3. التفاصيل الأخرى للاشتراك</div>
         ${sessionHtml}`;
 
     const excludedFields = ['services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 'commitmentPeriod', 'activeSession', 'startedAt', 'phone', 'mobile', 'deviceDetails'];
@@ -478,7 +491,7 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
         else if (key === 'username') displayVal = cleanUsername(displayVal);
 
         baseInfoHtml += `
-            <div class="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-borderLight dark:border-slate-800 text-xs">
+            <div class="flex justify-between items-center p-2.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
                 <span class="text-slate-500 font-medium">${keyLabels[key] || key}</span>
                 <span class="font-semibold text-left dir-ltr break-all max-w-[200px]">${displayVal}</span>
             </div>
@@ -501,14 +514,14 @@ async function loadAgents() {
         const select = document.getElementById('select-agent-assign');
         
         if (!Array.isArray(agents) || agents.length === 0) {
-            if(list) list.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">لا توجد وكلاء حالياً</p>`;
+            if(list) list.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">لا توجد وكلاء حالياً</p>';
             if(select) select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>';
             return;
         }
 
         if(list) {
             list.innerHTML = agents.map(a => `
-                <div class="flex justify-between items-center p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-borderLight dark:border-slate-800">
+                <div class="flex justify-between items-center p-2.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                     <div><p class="text-xs font-bold">${a.name}</p><p class="text-[10px] text-slate-500">${a.username}</p></div>
                     <span class="text-[10px] bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full">${a.subscriber_count || 0} مشترك</span>
                 </div>
@@ -534,7 +547,7 @@ async function loadTickets() {
             return;
         }
         list.innerHTML = items.map(t => `
-            <div class="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-borderLight dark:border-slate-800 space-y-2 text-xs">
+            <div class="p-3.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
                 <div class="flex justify-between items-center">
                     <span class="font-bold text-indigo-600 dark:text-indigo-400">تذكرة #${t.displayId || t.id} (${extractValue(t.self) || 'دعم'})</span>
                     <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-500">${t.status || 'مفتوحة'}</span>
@@ -559,7 +572,7 @@ async function loadRequestsTasks() {
             return;
         }
         list.innerHTML = items.map(req => `
-            <div class="p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-borderLight dark:border-slate-800 space-y-2 text-xs">
+            <div class="p-3.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
                 <div class="flex justify-between items-center">
                     <span class="font-bold text-amber-500">طلب تنصيب (كود: ${req.installationCode || 'N/A'})</span>
                     <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500">${extractValue(req.status) || 'In Progress'}</span>
