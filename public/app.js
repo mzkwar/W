@@ -188,12 +188,9 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// دالة شمولية وموسعة لاستخراج قيمة البور من أي هيكل بيانات محتمل
 function parseRxPower(data) {
     if (!data) return null;
     let val = null;
-    
-    // البحث في خصائص كائن مودل
     if (data.model !== undefined && data.model !== null) {
         if (typeof data.model === 'object') {
             val = data.model.rxPower ?? data.model.rx_power ?? data.model.power ?? data.model.RxPower ?? data.model.opticalPower;
@@ -201,12 +198,9 @@ function parseRxPower(data) {
             val = data.model;
         }
     }
-    
-    // البحث المباشر في البيانات أو deviceDetails
     if (val === null || val === undefined || isNaN(Number(val))) {
         val = data.rxPower ?? data.rx_power ?? data.power ?? data.RxPower ?? data.opticalPower ?? data.deviceDetails?.rxPower;
     }
-
     if (val !== null && val !== undefined && !isNaN(Number(val))) {
         return Number(val);
     }
@@ -249,7 +243,6 @@ async function loadSubscribersFast() {
         const subData = await res.json();
         cachedSubscribers = Array.isArray(subData) ? subData : (subData.items || subData.subscribers || subData.data || []);
         
-        // استخراج البور المدمج في الاشتراكات أولاً (إن وجد)
         cachedSubscribers.forEach(sub => {
             const username = cleanUsername(sub.username || sub.id);
             const embeddedPower = parseRxPower(sub);
@@ -260,8 +253,6 @@ async function loadSubscribersFast() {
 
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
-        
-        // جلب بقية البورات في الخلفية للمشتركين الذين لم تتوفر قيمهم
         fetchSubscribersPowerInBackground(cachedSubscribers);
     } catch (err) {
         console.error(err);
@@ -309,13 +300,18 @@ function updateGlobalStats(items) {
     let total = items.length;
     let active = 0;
     let online = 0;
+    let offline = 0;
     let expiringCount = 0;
     const now = new Date();
 
     items.forEach(sub => {
         const statusVal = extractValue(sub.status);
         if (sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال') active++;
-        if (Boolean(sub.hasActiveSession)) online++;
+        if (Boolean(sub.hasActiveSession)) {
+            online++;
+        } else {
+            offline++;
+        }
 
         const expDate = new Date(sub.expires || sub.expirationDate);
         const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
@@ -324,6 +320,7 @@ function updateGlobalStats(items) {
 
     document.getElementById('stat-total').innerText = total;
     document.getElementById('stat-online').innerText = online;
+    document.getElementById('stat-offline').innerText = offline;
     document.getElementById('stat-active').innerText = active;
     document.getElementById('stat-expiring').innerText = expiringCount;
 }
@@ -332,6 +329,9 @@ function filterOnlineStatus(mode) {
     if (mode === 'online') {
         renderTableRows(cachedSubscribers.filter(s => Boolean(s.hasActiveSession)));
         showToast("عرض المشتركين المتصلين الآن");
+    } else if (mode === 'offline') {
+        renderTableRows(cachedSubscribers.filter(s => !Boolean(s.hasActiveSession)));
+        showToast("عرض المشتركين غير المتصلين");
     } else {
         renderTableRows(cachedSubscribers);
         showToast("عرض جميع المشتركين");
@@ -460,7 +460,6 @@ function sortSubscribersByPower() {
     showToast(sortPowerDesc ? "تم الترتيب من الأقوى للأضعف حسب البور" : "تم الترتيب من الأضعف للأقوى حسب البور");
 }
 
-// ملف المشترك الشامل مع العرض الفوري والدقيق لقوة البور
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -526,7 +525,6 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const model = ontData?.model || ontData || {};
     let statusText = model.status?.displayValue || model.status || 'Up';
     
-    // استخراج البور بدقة من جميع المصادر الممكنة (ONT أو الاشتراكات)
     let rxPowerParsed = parseRxPower(ontData) ?? parseRxPower(matchedSub) ?? subscribersPowerCache[username];
     let rxPowerVal = rxPowerParsed !== null && !isNaN(rxPowerParsed) ? `${rxPowerParsed} dBm` : 'غير متوفرة';
     
