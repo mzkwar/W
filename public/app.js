@@ -11,7 +11,8 @@ window.addEventListener('DOMContentLoaded', async () => {
             loadWalletBalance(),
             loadSessions(),
             loadAgents(),
-            loadTickets()
+            loadTickets(),
+            loadRequestsTasks()
         ]);
 
         const loader = document.getElementById('global-loader');
@@ -177,7 +178,7 @@ function formatDuration(seconds) {
     return res.trim() || `${seconds} ثانية`;
 }
 
-// عرض معلومات الـ ONT بدقة متناهية مطابقة لهيكل الـ JSON الخاص بك
+// عرض معلومات الـ ONT بدقة متناهية
 function formatOntData(ontData, subDeviceDetails) {
     const model = ontData?.model || ontData || {};
     let statusText = 'Up';
@@ -381,7 +382,6 @@ function renderTableRows(items) {
         const isOnline = Boolean(sub.hasActiveSession);
         const planType = getSubscriptionType(sub);
         
-        // استخراج الـ customerId بدقة من كائن الـ customer أو الـ ID
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
 
         tbody.innerHTML += `
@@ -421,7 +421,7 @@ function filterSubscribers() {
     renderTableRows(filtered);
 }
 
-// عرض ملف العميل الشامل واستخراج رقم الهاتف والـ SN واشتراكات العميل تماماً كما أرسلتها
+// عرض ملف العميل الشامل
 async function openSubscriberDetailPage(targetUsername, customerId) {
     const sub = cachedSubscribers.find(s => cleanUsername(s.username || s.id) === targetUsername);
     if (!sub) return;
@@ -455,18 +455,14 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
 
     container.innerHTML = '';
 
-    // دمج اشتراكات العميل للحصول على الـ deviceDetails الحقيقي (Serial, FDT, FAT)
     const customerSubs = customerData?.customerSubscriptions || [];
     const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
 
-    // 1. تفاصيل جلسة الاتصال وتاريخ البدء
     container.innerHTML += formatSessionDetails(matchedSub);
 
-    // 2. معلومات الـ ONT والرقم التسلسلي
     container.innerHTML += `<div class="text-indigo-400 font-bold pt-3 pb-1 border-b border-slate-700">معلومات جهاز الـ ONT واختبار الإشارة</div>`;
     container.innerHTML += formatOntData(ontData, matchedSub.deviceDetails);
 
-    // 3. استخراج رقم الهاتف والموقع الجغرافي بالاعتماد على هيكل customer الـ API
     const custModel = customerData?.customer || {};
     const primaryContact = custModel.primaryContact || {};
     const addresses = custModel.addresses || [];
@@ -495,7 +491,6 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     contactMapHtml += `</div>`;
     container.innerHTML += contactMapHtml;
 
-    // 4. بيانات الاشتراك الأساسية
     const excludedFields = [
         'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
         'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
@@ -584,6 +579,7 @@ async function loadAgents() {
     }
 }
 
+// دالة جلب وعرض تذاكر الدعم الفني بناءً على الهيكل الجديد
 async function loadTickets() {
     const list = document.getElementById('tickets-list');
     if (!list) return;
@@ -595,7 +591,7 @@ async function loadTickets() {
         if (handleAuthError(res)) return;
 
         const data = await res.json();
-        const items = data.items || data.tickets || [];
+        const items = data.items || [];
 
         if (items.length === 0) {
             list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد تذاكر دعم فني حالية</p>`;
@@ -603,29 +599,80 @@ async function loadTickets() {
         }
 
         list.innerHTML = items.map(t => {
-            const ticketNum = t.ticketNumber || t.id || 'N/A';
-            const title = t.title || t.subject || 'بدون عنوان';
+            const ticketDisplayId = t.displayId || t.id || 'N/A';
+            const subject = extractValue(t.self) || 'تذكرة دعم فني';
+            const summary = t.summary || 'بدون تفاصيل';
             const status = t.status || 'مفتوحة';
-            const customerName = extractValue(t.customer || t.creator || 'غير معروف');
+            const customerName = extractValue(t.customer) || 'غير معروف';
+            const zoneName = extractValue(t.zone) || 'N/A';
             const dateStr = formatDateClean(t.createdAt);
 
             return `
-                <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-700/80 space-y-2">
+                <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-700/80 space-y-2 text-xs">
                     <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold text-indigo-400">تذكرة رقم #${ticketNum}</span>
-                        <span class="text-[10px] px-2 py-0.5 rounded ${status === 'Closed' ? 'bg-slate-800 text-slate-400' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">${status}</span>
+                        <span class="font-bold text-indigo-400">تذكرة #${ticketDisplayId} (${subject})</span>
+                        <span class="px-2 py-0.5 rounded ${status === 'Closed' || status === 'Resolved' ? 'bg-slate-800 text-slate-400' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">${status}</span>
                     </div>
-                    <p class="text-xs font-bold text-white">${title}</p>
-                    <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800">
-                        <span>المرسل: ${customerName}</span>
+                    <p class="text-white bg-slate-800 p-2 rounded-lg">${summary}</p>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800 gap-1">
+                        <span>المشترك: <strong class="text-slate-300">${customerName}</strong> | النطاق: ${zoneName}</span>
                         <span>التاريخ: ${dateStr}</span>
                     </div>
-                    <button onclick="alert('تفاصيل التذكرة رقم #${ticketNum}\\nالعنوان: ${title}\\nالحالة: ${status}\\nالتاريخ: ${dateStr}')" class="w-full mt-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 py-1.5 rounded-lg text-[11px] font-bold transition">عرض المزيد</button>
                 </div>
             `;
         }).join('');
     } catch (e) {
         list.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">تعذر جلب التذاكر</p>`;
+    }
+}
+
+// دالة جلب وعرض المهام والطلبات (Onboarding Requests) بناءً على الهيكل الجديد
+async function loadRequestsTasks() {
+    const list = document.getElementById('tasks-list');
+    if (!list) return;
+
+    list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 animate-pulse">جاري جلب المهام الفنية والطلبات...</p>`;
+
+    try {
+        const res = await fetch('/api/ftth/requests', { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
+        const data = await res.json();
+        const items = data.items || [];
+
+        if (items.length === 0) {
+            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">لا توجد مهام أو طلبات تنصيب معلقة حالياً</p>`;
+            return;
+        }
+
+        list.innerHTML = items.map(req => {
+            const customerObj = req.customer || {};
+            const customerName = extractValue(customerObj) || 'غير معروف';
+            const mobile = customerObj.contact?.mobile || 'غير متوفر';
+            const installCode = req.installationCode || 'N/A';
+            const statusVal = extractValue(req.status) || 'In Progress';
+            const zoneName = extractValue(req.zone) || 'N/A';
+            const dateStr = formatDateClean(req.createdAt);
+
+            return `
+                <div class="p-3.5 bg-slate-900 rounded-xl border border-slate-700/80 space-y-2 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-amber-400">طلب تنصيب (كود: ${installCode})</span>
+                        <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">${statusVal}</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-800 p-2 rounded-lg text-slate-300">
+                        <div>اسم المشترك: <strong class="text-white">${customerName}</strong></div>
+                        <div>رقم الهاتف: <a href="tel:${mobile}" class="text-emerald-400 font-bold dir-ltr">${mobile}</a></div>
+                        <div>النطاق (Zone): <span class="text-white">${zoneName}</span></div>
+                    </div>
+                    <div class="flex justify-between items-center text-[10px] text-slate-400 pt-1 border-t border-slate-800">
+                        <span>تاريخ الإنشاء: ${dateStr}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">تعذر جلب المهام الفنية</p>`;
     }
 }
 
