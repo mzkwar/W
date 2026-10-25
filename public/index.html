@@ -28,7 +28,7 @@
     <div id="global-loader" class="fixed inset-0 bg-slate-900 z-50 flex flex-col items-center justify-center space-y-6 p-4">
         <div class="relative flex items-center justify-center">
             <div class="absolute w-28 h-28 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
-            <img src="images.jpg" alt="الشعار" class="w-20 h-20 object-contain rounded-2xl fiber-loader-img shadow-2xl">
+            <img src="images.jpg" alt="شعار المشروع الوطني" class="w-20 h-20 object-contain rounded-2xl fiber-loader-img shadow-2xl" onerror="this.style.display='none'">
         </div>
         <div class="text-center space-y-2">
             <p class="text-sm font-bold text-white tracking-wider">جاري جلب البيانات من المنظومة...</p>
@@ -71,7 +71,7 @@
             <button onclick="logout()" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1 rounded-lg text-xs font-bold">تسجيل الخروج</button>
         </header>
 
-        <!-- كروت الإحصائيات (تم تحديث التسميات وإضافة ينتهي قريباً) -->
+        <!-- كروت الإحصائيات -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
             <div onclick="filterOnlineStatus('all')" class="bg-slate-800 p-3 rounded-xl border border-slate-700/60 cursor-pointer hover:border-indigo-500 transition">
                 <p class="text-[10px] text-slate-400">إجمالي المشتركين</p>
@@ -171,7 +171,7 @@
             </section>
         </main>
 
-        <!-- صفحة تفاصيل المشترك المنفصلة (Full View بدلاً من Modal فوق الموقع) -->
+        <!-- صفحة تفاصيل المشترك المنفصلة (تفتح في صفحة مستقلة بالكامل) -->
         <div id="subscriber-detail-page" class="hidden min-h-screen bg-slate-900 absolute inset-0 z-50 p-4 flex flex-col space-y-4">
             <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700">
                 <div class="flex items-center gap-3">
