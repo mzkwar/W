@@ -9,7 +9,9 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const dbPath = path.resolve(__dirname, 'database.db');
+const dbPath = process.env.NODE_ENV === 'production' 
+    ? '/data/database.db' 
+    : path.resolve(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error("خطأ في قاعدة البيانات:", err.message);
     else console.log("تم الاتصال بقاعدة البيانات بنجاح.");
