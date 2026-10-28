@@ -13,6 +13,7 @@ const dbPath = path.resolve(__dirname, 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error("خطأ في قاعدة البيانات:", err.message);
     else console.log("تم الاتصال بقاعدة البيانات بنجاح.");
+});
 
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS sub_agents (
