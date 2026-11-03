@@ -336,20 +336,25 @@ function renderTransactionsTable(items) {
     }
 
     items.forEach(tx => {
-        const txId = tx.id || tx.transactionId || 'N/A';
-        const amount = tx.amount !== undefined ? `${Number(tx.amount).toLocaleString()} د.ع` : (tx.value ? `${tx.value} د.ع` : 'غير متوفر');
-        const dateStr = formatDateClean(tx.createdAt || tx.date);
-        const status = tx.status || tx.state || 'مكتملة';
+        const txId = tx.id || 'N/A';
+        let rawAmount = tx.transactionAmount?.value !== undefined ? tx.transactionAmount.value : (tx.amount || 0);
+        let currency = tx.transactionAmount?.currency || 'IQD';
+        const amountDisplay = `${Number(rawAmount).toLocaleString()} ${currency}`;
         
-        let isAgentTx = tx.type === 'Agent' || tx.isAgent || (tx.description && tx.description.includes('وكيل')) || false;
-        let typeLabel = isAgentTx ? 'دفع وكيل' : 'دفع مشترك';
-        let typeBadgeClass = isAgentTx ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' : 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20';
+        const dateStr = formatDateClean(tx.occuredAt || tx.createdAt);
+        const status = tx.status || 'مكتملة';
+        
+        let customerName = extractValue(tx.customer);
+        let isAgentTx = tx.type === 'WALLET_TRANSFER' || (tx.walletOwnerType?.displayValue === 'Partner' && !customerName);
+        
+        let typeLabel = customerName ? `مشترك: ${customerName}` : (isAgentTx ? 'دفعة وكيل / شريك' : 'عملية مالية عامة');
+        let typeBadgeClass = customerName ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-purple-500/10 text-purple-500 border border-purple-500/20';
 
         tbody.innerHTML += `
             <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/60 transition">
-                <td class="p-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">#${txId.substring(0, 8)}</td>
+                <td class="p-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">#${txId}</td>
                 <td class="p-4"><span class="px-2.5 py-1 rounded-lg text-xs font-extrabold ${typeBadgeClass}">${typeLabel}</span></td>
-                <td class="p-4 font-extrabold text-emerald-500">${amount}</td>
+                <td class="p-4 font-extrabold ${rawAmount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${amountDisplay}</td>
                 <td class="p-4 text-xs font-semibold text-slate-500">${dateStr}</td>
                 <td class="p-4"><span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-500">${status}</span></td>
             </tr>
@@ -363,11 +368,11 @@ function filterTransactions() {
         renderTransactionsTable(cachedTransactions);
         showToast("عرض كافة المعاملات");
     } else if (filterVal === 'agent') {
-        const filtered = cachedTransactions.filter(tx => tx.type === 'Agent' || tx.isAgent || (tx.description && tx.description.includes('وكيل')));
+        const filtered = cachedTransactions.filter(tx => !tx.customer || !tx.customer.id || tx.customer.displayValue === "");
         renderTransactionsTable(filtered);
-        showToast("عرض دفعات الوكلاء فقط");
+        showToast("عرض دفعات الوكلاء والشركاء فقط");
     } else if (filterVal === 'subscriber') {
-        const filtered = cachedTransactions.filter(tx => !(tx.type === 'Agent' || tx.isAgent || (tx.description && tx.description.includes('وكيل'))));
+        const filtered = cachedTransactions.filter(tx => tx.customer && tx.customer.id && tx.customer.displayValue !== "");
         renderTransactionsTable(filtered);
         showToast("عرض دفعات المشتركين فقط");
     }
