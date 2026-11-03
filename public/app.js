@@ -140,10 +140,12 @@ function switchTab(tabName, title) {
         btn.classList.remove('text-indigo-500', 'font-extrabold');
         btn.classList.add('text-slate-400', 'font-semibold');
     });
-    
-    // ربط التبويب بالزر الخاص به في الناف بار السفلي
+
     let btnId = 'btn-subscribers';
-    if(tabName === 'new-subscriber') btnId = 'btn-new-subscriber';
+    if(tabName === 'new-subscriber') {
+        btnId = 'btn-new-subscriber';
+        initNewSubscriberForm();
+    }
     else if(tabName === 'agents') btnId = 'btn-agents';
     else if(tabName === 'tickets') btnId = 'btn-tickets';
     else if(tabName === 'tasks') btnId = 'btn-tasks';
@@ -308,7 +310,6 @@ async function loadSubscribersFast() {
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
         
-        // جلب البور في الخلفية بدون تجميد الواجهة
         fetchPowerInBackround(cachedSubscribers);
 
     } catch (err) {
@@ -543,38 +544,53 @@ function sortSubscribersByPlanType() {
     showToast("ترتيب حسب نوع الباقة");
 }
 
-function toggleIdFields(type) {
-    const nationalDiv = document.getElementById('field-national-card');
-    const oldIdDiv = document.getElementById('field-old-id');
-    if (type === 'nationalCard') {
-        nationalDiv.classList.remove('hidden');
-        oldIdDiv.classList.add('hidden');
-    } else {
-        nationalDiv.classList.add('hidden');
-        oldIdDiv.classList.remove('hidden');
+async function initNewSubscriberForm() {
+    try {
+        const [zonesRes, bundlesRes] = await Promise.all([
+            fetch('/api/ftth/zones', { headers: { 'Authorization': authToken } }),
+            fetch('/api/ftth/bundles', { headers: { 'Authorization': authToken } })
+        ]);
+
+        if (zonesRes.ok) {
+            const zonesData = await zonesRes.json();
+            const zoneSelect = document.getElementById('sub-zone-select');
+            if (zoneSelect && zonesData.items) {
+                zoneSelect.innerHTML = zonesData.items.map(z => `<option value="${z.self.id}">${z.self.displayValue}</option>`).join('');
+            }
+        }
+
+        if (bundlesRes.ok) {
+            const bundlesData = await bundlesRes.json();
+            const bundleSelect = document.getElementById('sub-bundle-select');
+            if (bundleSelect && bundlesData.items && bundlesData.items[0]?.applicableSubscriptions) {
+                const subs = bundlesData.items[0].applicableSubscriptions;
+                bundleSelect.innerHTML = subs.map(s => `<option value="${s.basePlanId}">${s.title} (${s.speed} - ${s.price.value} د.ع)</option>`).join('');
+            }
+        }
+    } catch (e) {
+        console.error("خطأ جلب بيانات النطاقات والباقات", e);
     }
 }
 
 async function submitNewSubscriberContract(e) {
     e.preventDefault();
     const btn = document.getElementById('btn-submit-contract');
-    btn.innerText = 'جاري إرسال العقد...';
+    btn.innerText = 'جاري الاعتماد والربط مع الموقع الأساسي...';
     btn.disabled = true;
 
-    const fullname = document.getElementById('new-sub-fullname').value;
-    const phone = document.getElementById('new-sub-phone').value;
-    const pkg = document.getElementById('new-sub-package').value;
-    const address = document.getElementById('new-sub-address').value;
-    const idType = document.querySelector('input[name="idType"]:checked').value;
-    const nationalId = document.getElementById('new-sub-national-id').value;
-
     const payload = {
-        customerName: fullname,
-        phoneNumber: phone,
-        packageName: pkg,
-        address: address,
-        hasNationalCard: idType === 'nationalCard',
-        nationalCardNumber: nationalId || null,
+        firstName: document.getElementById('sub-first-name').value,
+        secondName: document.getElementById('sub-second-name').value,
+        thirdName: document.getElementById('sub-third-name').value,
+        fourthName: document.getElementById('sub-fourth-name').value,
+        surname: document.getElementById('sub-surname').value,
+        zoneId: document.getElementById('sub-zone-select').value,
+        phoneNumber: document.getElementById('new-sub-phone').value,
+        bundleId: document.getElementById('sub-bundle-select').value,
+        installationOptionId: document.getElementById('sub-install-option').value,
+        idNumber: document.getElementById('sub-id-number').value,
+        motherFirstName: document.getElementById('sub-mother-1').value,
+        housingCardNumber: document.getElementById('sub-housing-card').value || '',
         isp: 'FTTH',
         representative: 'مركز وار لخدمات الإنترنت'
     };
@@ -590,18 +606,18 @@ async function submitNewSubscriberContract(e) {
         });
 
         if (res.ok) {
-            showToast("تم فتح العقد وتسجيل المشترك الجديد بنجاح!");
+            showToast("تم إرسال العقد وتسجيل المشترك بنجاح في الموقع الأساسي!");
             document.getElementById('new-subscriber-form').reset();
             switchTab('subscribers', 'المشتركين');
             loadSubscribersFast();
         } else {
             const errData = await res.json();
-            showToast(errData.error || "تعذر إرسال العقد", "error");
+            showToast(errData.error || "فشل تسجيل المشترك في الموقع الأساسي", "error");
         }
     } catch (err) {
-        showToast("حدث خطأ في الاتصال بالمنظومة", "error");
+        showToast("خطأ في الاتصال بالمنظومة الرئيسية", "error");
     } finally {
-        btn.innerText = '📝 إرسال العقد وتسجيل المشترك';
+        btn.innerText = '🚀 إرسال واعتماد العقد في الموقع الأساسي';
         btn.disabled = false;
     }
 }
