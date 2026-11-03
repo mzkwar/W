@@ -58,7 +58,7 @@ app.post('/api/ftth/login', async (req, res) => {
 // قائمة الاشتراكات العامة
 app.get('/api/ftth/subscriptions', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/subscriptions?hierarchyLevel=0', {
@@ -74,7 +74,7 @@ app.get('/api/ftth/subscriptions', async (req, res) => {
 app.get('/api/ftth/ont', async (req, res) => {
     const token = req.headers.authorization;
     const username = req.query.username;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const response = await axios.get(`https://admin.ftth.iq/api/subscriptions/device/ont?username=${username}`, {
@@ -90,7 +90,7 @@ app.get('/api/ftth/ont', async (req, res) => {
 app.get('/api/ftth/customer/:id', async (req, res) => {
     const token = req.headers.authorization;
     const customerId = req.params.id;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const [custRes, subsRes] = await Promise.all([
@@ -107,30 +107,14 @@ app.get('/api/ftth/customer/:id', async (req, res) => {
     }
 });
 
-// محفظة الشريك والرصيد
-app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
-    const token = req.headers.authorization;
-    const partnerId = req.params.partnerId;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
-
-    try {
-        const response = await axios.get(`https://admin.ftth.iq/api/partners/${partnerId}/wallets/balance`, {
-            headers: { 'Authorization': token, 'Accept': 'application/json' }
-        });
-        res.json(response.data);
-    } catch (error) {
-        res.status(500).json({ error: "تعذر جلب رصيد المحفظة" });
-    }
-});
-
-// سجل المعاملات والدفعات للمحفظة
+// جلب كافة المعاملات والدفعات للمحفظة بدون حد أقصى
 app.get('/api/ftth/transactions/:partnerId', async (req, res) => {
     const token = req.headers.authorization;
     const partnerId = req.params.partnerId;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
-        const response = await axios.get(`https://admin.ftth.iq/api/transactions?pageSize=50&pageNumber=1&sortCriteria.property=occuredAt&sortCriteria.direction=desc&hierarchyLevel=1&walletOwnerType=Partner&partnerId=${partnerId}`, {
+        const response = await axios.get(`https://admin.ftth.iq/api/transactions?pageSize=1000&pageNumber=1&sortCriteria.property=occuredAt&sortCriteria.direction=desc&hierarchyLevel=1&walletOwnerType=Partner&partnerId=${partnerId}`, {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
@@ -143,7 +127,7 @@ app.get('/api/ftth/transactions/:partnerId', async (req, res) => {
 // جلب النطاقات (Zones)
 app.get('/api/ftth/zones', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/locations/zones', {
@@ -158,7 +142,7 @@ app.get('/api/ftth/zones', async (req, res) => {
 // جلب خطط وباقات الأسعار المتاحة
 app.get('/api/ftth/bundles', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/plans/bundles?includePrices=true', {
@@ -173,7 +157,7 @@ app.get('/api/ftth/bundles', async (req, res) => {
 // الجلسات
 app.get('/api/ftth/sessions', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/sessions?pageSize=50&pageNumber=1&sortCriteria.property=username&sortCriteria.direction=asc&status=1&hierarchyLevel=1', {
@@ -188,7 +172,7 @@ app.get('/api/ftth/sessions', async (req, res) => {
 // التذاكر
 app.get('/api/ftth/tickets', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/support/tickets?pageSize=12&pageNumber=1&sortCriteria.property=createdAt&sortCriteria.direction=desc&hierarchyLevel=1&additionalFilter=ForMe', {
@@ -203,7 +187,7 @@ app.get('/api/ftth/tickets', async (req, res) => {
 // المهام والطلبات
 app.get('/api/ftth/requests', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const response = await axios.get('https://admin.ftth.iq/api/requests?pageSize=10&pageNumber=1&sortCriteria.property=CreatedAt&sortCriteria.direction=desc&typeIds=28be9a02-1365-400b-9db4-003829eb962c&status=Open&additionalFilters=MyRequests', {
@@ -218,7 +202,7 @@ app.get('/api/ftth/requests', async (req, res) => {
 // إرسال طلب عقد وتسجيل مشترك للمنظومة الأساسية
 app.post('/api/ftth/contracts/submit', async (req, res) => {
     const token = req.headers.authorization;
-    if (!token) return res.status(401).json({ error: "غير مصرح" });
+    if (!token) return res.status(401).json({ error: "غير مرخص" });
 
     try {
         const response = await axios.post('https://admin.ftth.iq/api/contracts', req.body, {
