@@ -201,6 +201,18 @@ function formatDateClean(isoString) {
     }
 }
 
+function formatWalletDateClean(isoString) {
+    if (!isoString) return 'غير محدد';
+    try {
+        const date = new Date(isoString);
+        const datePart = date.toISOString().split('T')[0];
+        const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        return `${datePart} ${timePart}`;
+    } catch (e) {
+        return isoString;
+    }
+}
+
 function formatDuration(seconds) {
     if (!seconds && seconds !== 0) return 'غير متوفرة';
     const days = Math.floor(seconds / (3600 * 24));
@@ -284,7 +296,7 @@ async function loadWalletTransactions() {
             const data = await res.json();
             const rawItems = Array.isArray(data) ? data : (data.items || data.transactions || data.model || []);
             
-            // عدم عرض الحركات التي تكون قيمتها 0
+            // استبعاد الحركات التي تكون قيمتها صفر
             cachedTransactions = rawItems.filter(tx => {
                 let rawAmount = tx.transactionAmount?.value !== undefined ? tx.transactionAmount.value : (tx.amount || 0);
                 return Number(rawAmount) !== 0;
@@ -293,7 +305,7 @@ async function loadWalletTransactions() {
             renderTransactionsTable(cachedTransactions);
         } else {
             const tbody = document.getElementById('transactions-table-body');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500 font-bold">تعذر جلب سجل المعاملات</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-500 font-bold">تعذر جلب سجل المعاملات</td></tr>`;
         }
     } catch (e) {
         console.error("خطأ في جلب المعاملات المالية", e);
@@ -309,7 +321,7 @@ function renderTransactionsTable(items) {
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 font-bold">لا توجد معاملات مالية مسجلة حالياً</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400 font-bold">لا توجد معاملات مالية مسجلة حالياً</td></tr>`;
         return;
     }
 
@@ -319,19 +331,23 @@ function renderTransactionsTable(items) {
         let currency = tx.transactionAmount?.currency || 'IQD';
         const amountDisplay = `${Number(rawAmount).toLocaleString()} ${currency}`;
         
-        const dateStr = formatDateClean(tx.occuredAt || tx.createdAt);
+        const dateStr = formatWalletDateClean(tx.occuredAt || tx.createdAt);
         const status = tx.status || 'مكتملة';
         
-        // تحديد نوع الدفع بناءً على paymentMode (Card تعني بطاقة المشترك، Wallet تعني الوكيل)
-        let paymentModeVal = tx.paymentMode || tx.paymentMethod?.displayValue || '';
-        let isCard = paymentModeVal.toLowerCase() === 'card' || (tx.customer && tx.customer.id);
-        
-        let typeLabel = isCard ? 'بطاقة المشترك (Card)' : 'الوكيل (Wallet)';
+        // جلب اسم المشترك
+        let customerName = extractValue(tx.customer) || '-';
+
+        // تحديد نوع وطريقة الدفع (Card للمشترك، Wallet للوكيل)
+        let paymentModeVal = (tx.paymentMode || tx.paymentMethod?.displayValue || '').trim();
+        let isCard = paymentModeVal.toLowerCase() === 'card' || (tx.customer && tx.customer.id && tx.customer.displayValue);
+
+        let typeLabel = isCard ? 'بطاقة (Card) - مشترك' : 'محفظة (Wallet) - وكيل';
         let typeBadgeClass = isCard ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-purple-500/10 text-purple-500 border border-purple-500/20';
 
         tbody.innerHTML += `
             <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/60 transition">
                 <td class="p-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">#${txId}</td>
+                <td class="p-4 font-bold text-slate-700 dark:text-slate-200">${customerName}</td>
                 <td class="p-4"><span class="px-2.5 py-1 rounded-lg text-xs font-extrabold ${typeBadgeClass}">${typeLabel}</span></td>
                 <td class="p-4 font-extrabold ${rawAmount < 0 ? 'text-rose-500' : 'text-emerald-500'}">${amountDisplay}</td>
                 <td class="p-4 text-xs font-semibold text-slate-500">${dateStr}</td>
@@ -345,18 +361,18 @@ function filterTransactions() {
     const filterVal = document.getElementById('filter-transaction-type').value;
     if (filterVal === 'all') {
         renderTransactionsTable(cachedTransactions);
-        showToast("عرض كافة المعاملات");
+        showToast("عرض كافة الحركات المالية");
     } else if (filterVal === 'Card') {
         const filtered = cachedTransactions.filter(tx => {
-            let mode = (tx.paymentMode || tx.paymentMethod?.displayValue || '').toLowerCase();
-            return mode === 'card' || (tx.customer && tx.customer.id);
+            let mode = (tx.paymentMode || tx.paymentMethod?.displayValue || '').trim().toLowerCase();
+            return mode === 'card' || (tx.customer && tx.customer.id && tx.customer.displayValue);
         });
         renderTransactionsTable(filtered);
-        showToast("عرض دفعات بطاقة المشترك (Card)");
+        showToast("عرض دفعات المشترك (Card)");
     } else if (filterVal === 'Wallet') {
         const filtered = cachedTransactions.filter(tx => {
-            let mode = (tx.paymentMode || tx.paymentMethod?.displayValue || '').toLowerCase();
-            return mode === 'wallet' || (!tx.customer || !tx.customer.id);
+            let mode = (tx.paymentMode || tx.paymentMethod?.displayValue || '').trim().toLowerCase();
+            return mode === 'wallet' || (!tx.customer || !tx.customer.id || !tx.customer.displayValue);
         });
         renderTransactionsTable(filtered);
         showToast("عرض دفعات الوكيل (Wallet)");
