@@ -266,7 +266,7 @@
                 </div>
             </section>
 
-            <!-- تبويب المحفظة وسجل المعاملات (جديد) -->
+            <!-- تبويب المحفظة وسجل المعاملات -->
             <section id="tab-wallet" class="tab-content hidden space-y-4 max-w-5xl mx-auto">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 dark:bg-slate-900/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
@@ -285,7 +285,7 @@
                             <label class="text-xs font-bold whitespace-nowrap">فرز حسب النوع:</label>
                             <select id="filter-transaction-type" onchange="filterTransactions()" class="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold p-2.5 rounded-xl">
                                 <option value="all">جميع المعاملات</option>
-                                <option value="agent">دفعات الوكلاء</option>
+                                <option value="agent">دفعات الوكلاء والشركاء</option>
                                 <option value="subscriber">دفعات المشتركين</option>
                             </select>
                         </div>
@@ -296,7 +296,7 @@
                         <table class="w-full text-right text-sm">
                             <thead class="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold">
                                 <tr>
-                                    <th class="p-3.5">رقم المعاملة / العملية</th>
+                                    <th class="p-3.5">رقم المعاملة</th>
                                     <th class="p-3.5">نوع الدفع (وكيل / مشترك)</th>
                                     <th class="p-3.5">المبلغ</th>
                                     <th class="p-3.5">التاريخ والوقت</th>
