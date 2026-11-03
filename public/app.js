@@ -309,46 +309,11 @@ async function loadSubscribersFast() {
         
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
-        
-        fetchPowerInBackround(cachedSubscribers);
 
     } catch (err) {
         console.error("خطأ في جلب البيانات:", err);
         const tbody = document.getElementById('subscribers-table-body');
-        if(tbody) tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-500 font-bold">فشل جلب بيانات المشتركين</td></tr>`;
-    }
-}
-
-async function fetchPowerInBackround(subscribers) {
-    const batchSize = 5;
-    for (let i = 0; i < subscribers.length; i += batchSize) {
-        const batch = subscribers.slice(i, i + batchSize);
-        await Promise.all(batch.map(async (sub) => {
-            if (sub.rxPower !== undefined) return;
-
-            const username = cleanUsername(sub.username) || cleanUsername(sub.id);
-            if (!username || username === 'N/A') return;
-
-            try {
-                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
-                if (res.ok) {
-                    const ontData = await res.json();
-                    if (ontData?.model?.rxPower !== undefined) {
-                        sub.rxPower = ontData.model.rxPower;
-                        updatePowerCellInTable(username, sub.rxPower);
-                    }
-                }
-            } catch (e) {}
-        }));
-    }
-}
-
-function updatePowerCellInTable(username, powerValue) {
-    const el = document.getElementById(`power-${username}`);
-    if (el) {
-        el.innerText = `${powerValue} dBm`;
-        el.className = 'font-mono font-bold text-cyan-500 dir-ltr text-sm animate-pulse';
-        setTimeout(() => el.classList.remove('animate-pulse'), 1000);
+        if(tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500 font-bold">فشل جلب بيانات المشتركين</td></tr>`;
     }
 }
 
@@ -435,7 +400,7 @@ function renderTableRows(items) {
     tbody.innerHTML = '';
 
     if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400 font-bold">لا توجد نتائج مطابقة للبحث أو التصفية</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 font-bold">لا توجد نتائج مطابقة للبحث أو التصفية</td></tr>`;
         return;
     }
 
@@ -448,12 +413,6 @@ function renderTableRows(items) {
         const planType = getSubscriptionType(sub);
         
         const customerId = sub.customerId || sub.accountId || (typeof sub.customer === 'object' ? sub.customer.id : '') || sub.id;
-        
-        const hasPower = sub.rxPower !== undefined && sub.rxPower !== null;
-        const rxPowerText = hasPower ? `${sub.rxPower} dBm` : 'جاري الفحص...';
-        const powerClass = hasPower ? 'text-cyan-500 font-bold' : 'text-slate-400 text-xs italic animate-pulse';
-
-        const powerDisplay = `<span id="power-${username}" class="font-mono dir-ltr text-sm ${powerClass}">${rxPowerText}</span>`;
 
         tbody.innerHTML += `
             <tr onclick="openSubscriberDetailPage('${username}', '${customerId}')" class="hover:bg-slate-100 dark:hover:bg-slate-800/60 transition cursor-pointer">
@@ -462,7 +421,6 @@ function renderTableRows(items) {
                     <span class="font-bold text-indigo-600 dark:text-indigo-400 block text-sm">${realCustomerName}</span>
                     <span class="text-xs text-slate-500 font-mono font-semibold">${username}</span>
                 </td>
-                <td class="p-4">${powerDisplay}</td>
                 <td class="p-4">
                     <span class="px-3 py-1 rounded-lg text-xs font-bold ${isActive ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}">
                         ${isActive ? 'فعال' : 'منتهي'}
@@ -506,18 +464,6 @@ function sortSubscribersByName() {
     });
     renderTableRows(displayedSubscribers);
     showToast(sortNameAsc ? "ترتيب تصاعدي حسب الاسم" : "ترتيب تنازلي حسب الاسم");
-}
-
-let sortPowerDesc = true;
-function sortSubscribersByPower() {
-    sortPowerDesc = !sortPowerDesc;
-    displayedSubscribers.sort((a, b) => {
-        const powerA = a.rxPower !== undefined && a.rxPower !== null ? Number(a.rxPower) : -999;
-        const powerB = b.rxPower !== undefined && b.rxPower !== null ? Number(b.rxPower) : -999;
-        return sortPowerDesc ? powerB - powerA : powerA - powerB;
-    });
-    renderTableRows(displayedSubscribers);
-    showToast(sortPowerDesc ? "ترتيب البور (الأعلى أولاً)" : "ترتيب البور (الأدنى أولاً)");
 }
 
 let sortOnlineAsc = true;
@@ -655,11 +601,6 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
 
     const customerSubs = customerData?.customerSubscriptions || [];
     const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
-
-    if (ontData?.model?.rxPower !== undefined) {
-        sub.rxPower = ontData.model.rxPower;
-        updatePowerCellInTable(username, sub.rxPower);
-    }
 
     const custModel = customerData?.customer || {};
     const primaryContact = custModel.primaryContact || {};
