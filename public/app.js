@@ -1,6 +1,7 @@
 let authToken = localStorage.getItem('ftth_token') || '';
 let cachedSubscribers = [];
 let displayedSubscribers = [];
+let cachedTransactions = [];
 let debounceTimer = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -14,6 +15,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         await Promise.all([
             loadSubscribersFast(),
             loadWalletBalance(),
+            loadWalletTransactions(),
             loadSessions(),
             loadAgents(),
             loadTickets(),
@@ -146,6 +148,10 @@ function switchTab(tabName, title) {
         btnId = 'btn-new-subscriber';
         initNewSubscriberForm();
     }
+    else if(tabName === 'wallet') {
+        btnId = 'btn-wallet';
+        loadWalletTransactions();
+    }
     else if(tabName === 'agents') btnId = 'btn-agents';
     else if(tabName === 'tickets') btnId = 'btn-tickets';
     else if(tabName === 'tasks') btnId = 'btn-tasks';
@@ -269,7 +275,8 @@ function formatSessionDetails(sub) {
 
 async function loadWalletBalance() {
     const badge = document.getElementById('wallet-badge');
-    if (!badge) return;
+    const headerBalance = document.getElementById('wallet-header-balance');
+    if (!badge && !headerBalance) return;
 
     try {
         const cleanToken = authToken.replace('Bearer ', '');
@@ -281,12 +288,88 @@ async function loadWalletBalance() {
         if (res.ok) {
             const walletData = await res.json();
             let balance = walletData.model?.balance ?? walletData.balance ?? walletData ?? 0;
-            badge.innerText = `الرصيد: ${Number(balance).toLocaleString()} د.ع`;
+            const formattedBalance = `${Number(balance).toLocaleString()} د.ع`;
+            if (badge) badge.innerText = `الرصيد: ${formattedBalance}`;
+            if (headerBalance) headerBalance.innerText = formattedBalance;
         } else {
-            badge.innerText = `الرصيد: متاح`;
+            if (badge) badge.innerText = `الرصيد: متاح`;
+            if (headerBalance) headerBalance.innerText = `متاح`;
         }
     } catch (e) {
-        badge.innerText = `الرصيد: --`;
+        if (badge) badge.innerText = `الرصيد: --`;
+        if (headerBalance) headerBalance.innerText = `--`;
+    }
+}
+
+async function loadWalletTransactions() {
+    try {
+        const cleanToken = authToken.replace('Bearer ', '');
+        const accountId = getAccountIdFromToken(cleanToken);
+
+        const res = await fetch(`/api/ftth/transactions/${accountId}`, { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
+        if (res.ok) {
+            const data = await res.json();
+            cachedTransactions = Array.isArray(data) ? data : (data.items || data.transactions || data.model || []);
+            renderTransactionsTable(cachedTransactions);
+        } else {
+            const tbody = document.getElementById('transactions-table-body');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500 font-bold">تعذر جلب سجل المعاملات</td></tr>`;
+        }
+    } catch (e) {
+        console.error("خطأ في جلب المعاملات المالية", e);
+    }
+}
+
+function renderTransactionsTable(items) {
+    const tbody = document.getElementById('transactions-table-body');
+    const badge = document.getElementById('transactions-count-badge');
+    
+    if (badge) badge.innerText = `العمليات: ${items.length}`;
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 font-bold">لا توجد معاملات مالية مسجلة حالياً</td></tr>`;
+        return;
+    }
+
+    items.forEach(tx => {
+        const txId = tx.id || tx.transactionId || 'N/A';
+        const amount = tx.amount !== undefined ? `${Number(tx.amount).toLocaleString()} د.ع` : (tx.value ? `${tx.value} د.ع` : 'غير متوفر');
+        const dateStr = formatDateClean(tx.createdAt || tx.date);
+        const status = tx.status || tx.state || 'مكتملة';
+        
+        let isAgentTx = tx.type === 'Agent' || tx.isAgent || (tx.description && tx.description.includes('وكيل')) || false;
+        let typeLabel = isAgentTx ? 'دفع وكيل' : 'دفع مشترك';
+        let typeBadgeClass = isAgentTx ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20' : 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20';
+
+        tbody.innerHTML += `
+            <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/60 transition">
+                <td class="p-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">#${txId.substring(0, 8)}</td>
+                <td class="p-4"><span class="px-2.5 py-1 rounded-lg text-xs font-extrabold ${typeBadgeClass}">${typeLabel}</span></td>
+                <td class="p-4 font-extrabold text-emerald-500">${amount}</td>
+                <td class="p-4 text-xs font-semibold text-slate-500">${dateStr}</td>
+                <td class="p-4"><span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-500">${status}</span></td>
+            </tr>
+        `;
+    });
+}
+
+function filterTransactions() {
+    const filterVal = document.getElementById('filter-transaction-type').value;
+    if (filterVal === 'all') {
+        renderTransactionsTable(cachedTransactions);
+        showToast("عرض كافة المعاملات");
+    } else if (filterVal === 'agent') {
+        const filtered = cachedTransactions.filter(tx => tx.type === 'Agent' || tx.isAgent || (tx.description && tx.description.includes('وكيل')));
+        renderTransactionsTable(filtered);
+        showToast("عرض دفعات الوكلاء فقط");
+    } else if (filterVal === 'subscriber') {
+        const filtered = cachedTransactions.filter(tx => !(tx.type === 'Agent' || tx.isAgent || (tx.description && tx.description.includes('وكيل'))));
+        renderTransactionsTable(filtered);
+        showToast("عرض دفعات المشتركين فقط");
     }
 }
 
@@ -868,5 +951,6 @@ async function assignSelected() {
 function logout() {
     localStorage.removeItem('ftth_token');
     cachedSubscribers = [];
+    cachedTransactions = [];
     location.reload();
 }
