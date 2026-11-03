@@ -334,14 +334,14 @@ function renderTransactionsTable(items) {
         const dateStr = formatWalletDateClean(tx.occuredAt || tx.createdAt);
         const status = tx.status || 'مكتملة';
         
-        // جلب اسم المشترك
-        let customerName = extractValue(tx.customer) || '-';
+        // جلب اسم المشترك بدقة من customer.displayValue
+        let customerName = extractValue(tx.customer?.displayValue || tx.customer) || '-';
 
-        // تحديد نوع وطريقة الدفع (Card للمشترك، Wallet للوكيل)
+        // تحديد نوع وطريقة الدفع اعتماداً حصرياً على paymentMode
         let paymentModeVal = (tx.paymentMode || tx.paymentMethod?.displayValue || '').trim();
-        let isCard = paymentModeVal.toLowerCase() === 'card' || (tx.customer && tx.customer.id && tx.customer.displayValue);
+        let isCard = paymentModeVal.toLowerCase() === 'card';
 
-        let typeLabel = isCard ? 'بطاقة (Card) - مشترك' : 'محفظة (Wallet) - وكيل';
+        let typeLabel = isCard ? 'بطاقة دفع (Card) - مشترك' : 'محفظة (Wallet) - وكيل';
         let typeBadgeClass = isCard ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-purple-500/10 text-purple-500 border border-purple-500/20';
 
         tbody.innerHTML += `
@@ -365,14 +365,14 @@ function filterTransactions() {
     } else if (filterVal === 'Card') {
         const filtered = cachedTransactions.filter(tx => {
             let mode = (tx.paymentMode || tx.paymentMethod?.displayValue || '').trim().toLowerCase();
-            return mode === 'card' || (tx.customer && tx.customer.id && tx.customer.displayValue);
+            return mode === 'card';
         });
         renderTransactionsTable(filtered);
         showToast("عرض دفعات المشترك (Card)");
     } else if (filterVal === 'Wallet') {
         const filtered = cachedTransactions.filter(tx => {
             let mode = (tx.paymentMode || tx.paymentMethod?.displayValue || '').trim().toLowerCase();
-            return mode === 'wallet' || (!tx.customer || !tx.customer.id || !tx.customer.displayValue);
+            return mode === 'wallet' || mode !== 'card';
         });
         renderTransactionsTable(filtered);
         showToast("عرض دفعات الوكيل (Wallet)");
