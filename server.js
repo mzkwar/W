@@ -123,14 +123,14 @@ app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     }
 });
 
-// سجل المعاملات والدفعات للمحفظة
+// سجل المعاملات والدفعات للمحفظة (متوافق مع الهيكل الصحيح للـ API)
 app.get('/api/ftth/transactions/:partnerId', async (req, res) => {
     const token = req.headers.authorization;
     const partnerId = req.params.partnerId;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
 
     try {
-        const response = await axios.get(`https://admin.ftth.iq/api/partners/${partnerId}/wallets/transactions?pageSize=50&pageNumber=1`, {
+        const response = await axios.get(`https://admin.ftth.iq/api/transactions?pageSize=50&pageNumber=1&sortCriteria.property=occuredAt&sortCriteria.direction=desc&hierarchyLevel=1&walletOwnerType=Partner&partnerId=${partnerId}`, {
             headers: { 'Authorization': token, 'Accept': 'application/json' }
         });
         res.json(response.data);
