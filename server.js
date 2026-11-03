@@ -123,6 +123,23 @@ app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     }
 });
 
+// سجل المعاملات والدفعات للمحفظة
+app.get('/api/ftth/transactions/:partnerId', async (req, res) => {
+    const token = req.headers.authorization;
+    const partnerId = req.params.partnerId;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get(`https://admin.ftth.iq/api/partners/${partnerId}/wallets/transactions?pageSize=50&pageNumber=1`, {
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error("خطأ جلب المعاملات:", error.response?.data || error.message);
+        res.status(500).json({ error: "تعذر جلب سجل المعاملات والدفعات" });
+    }
+});
+
 // جلب النطاقات (Zones)
 app.get('/api/ftth/zones', async (req, res) => {
     const token = req.headers.authorization;
