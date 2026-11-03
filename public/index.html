@@ -37,7 +37,7 @@
 </head>
 <body class="bg-lightBg text-slate-800 dark:bg-darkBg dark:text-slate-100 min-h-screen pb-24 transition-colors duration-200 text-sm">
 
-    <!-- شاشة التحميل ببراند مركز وار -->
+    <!-- شاشة التحميل -->
     <div id="global-loader" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center space-y-6 p-4">
         <div class="relative flex items-center justify-center">
             <div class="w-28 h-28 bg-gradient-to-tr from-indigo-600 via-purple-600 to-cyan-400 rounded-3xl flex items-center justify-center shadow-2xl w-logo-animation">
@@ -97,7 +97,7 @@
             </div>
         </header>
 
-        <!-- الإحصائيات الدائرية الجذابة -->
+        <!-- الإحصائيات الدائرية -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-4">
             <div onclick="filterOnlineStatus('all')" class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500 transition">
                 <div class="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 flex items-center justify-center mb-2 shadow-inner">
@@ -132,7 +132,7 @@
         </div>
 
         <main class="p-4 flex-1">
-            <!-- تبويب قائمة المشتركين والجدول -->
+            <!-- تبويب قائمة المشتركين -->
             <section id="tab-subscribers" class="tab-content space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -178,97 +178,186 @@
                 </div>
             </section>
 
-            <!-- تبويب إضافة مشترك وعقد جديد -->
-            <section id="tab-new-subscriber" class="tab-content hidden space-y-4 max-w-3xl mx-auto">
-                <div class="bg-cardLight dark:bg-cardDark p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-5">
+            <!-- تبويب إضافة مشترك جديد (مطابق للحقول الأصلية بدقة) -->
+            <section id="tab-new-subscriber" class="tab-content hidden space-y-4 max-w-4xl mx-auto">
+                <div class="bg-cardLight dark:bg-cardDark p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
                     <div class="border-b border-slate-200 dark:border-slate-700 pb-3 flex justify-between items-center">
                         <div>
                             <h2 class="text-lg font-black text-indigo-600 dark:text-indigo-400">إضافة مشترك جديد وافتتاح عقد (FTTH)</h2>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">مركز وار لخدمات الإنترنت - تسجيل رسمي</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">مركز وار لخدمات الإنترنت - مطابقة تامة للموقع الأصلي</p>
                         </div>
                         <span class="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3 py-1 rounded-xl text-xs font-bold">عقد إلكتروني معتمد</span>
                     </div>
 
-                    <form id="new-subscriber-form" onsubmit="submitNewSubscriberContract(event)" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold mb-1">الاسم الرباعي للمشترك *</label>
-                                <input type="text" id="new-sub-fullname" placeholder="مثال: مهدي ظافر كمر" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-indigo-500" required>
+                    <form id="new-subscriber-form" onsubmit="submitNewSubscriberContract(event)" class="space-y-6">
+                        
+                        <!-- 1. المعلومات الشخصية واختيار الباقة -->
+                        <div class="space-y-3">
+                            <h3 class="text-xs font-extrabold text-indigo-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 pb-1">المعلومات الشخصية والاتصال</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">الاسم الأول *</label>
+                                    <input type="text" id="sub-first-name" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">الاسم الثاني *</label>
+                                    <input type="text" id="sub-second-name" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">الاسم الثالث *</label>
+                                    <input type="text" id="sub-third-name" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold" required>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-xs font-bold mb-1">رقم الهاتف الرئيسي *</label>
-                                <input type="tel" id="new-sub-phone" placeholder="07700000000" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm font-mono dir-ltr focus:outline-none focus:border-indigo-500" required>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">الاسم الرابع *</label>
+                                    <input type="text" id="sub-fourth-name" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">اسم العائلة (اللقب) *</label>
+                                    <input type="text" id="sub-surname" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">الباقة / نوع الاشتراك *</label>
+                                    <select id="new-sub-package" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-bold" required>
+                                        <option value="">اختر الباقة...</option>
+                                        <option value="Home Economics">Home Economics (اقتصادية)</option>
+                                        <option value="Home Standard">Home Standard (اعتيادية)</option>
+                                        <option value="Home Premium">Home Premium (ممتازة)</option>
+                                        <option value="Commercial Super">Commercial Super (تجاري)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">رقم الهاتف (الرئيسي) *</label>
+                                    <input type="tel" id="new-sub-phone" placeholder="07700000000" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">رقم الهاتف الثاني (إن وجد)</label>
+                                    <input type="tel" id="new-sub-phone2" placeholder="07800000000" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">البريد الإلكتروني (اختياري)</label>
+                                    <input type="email" id="new-sub-email" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs dir-ltr">
+                                </div>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold mb-1">نوع الاشتراك / الباقة المطلوب *</label>
-                                <select id="new-sub-package" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:outline-none focus:border-indigo-500" required>
-                                    <option value="">اختر الباقة...</option>
-                                    <option value="Home Economics">Home Economics (اقتصادية)</option>
-                                    <option value="Home Standard">Home Standard (اعتيادية)</option>
-                                    <option value="Home Premium">Home Premium (ممتازة)</option>
-                                    <option value="Commercial Super">Commercial Super (تجاري)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold mb-1">العنوان / المحلة والزقاق *</label>
-                                <input type="text" id="new-sub-address" placeholder="اسم المنطقة أو الحي" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-indigo-500" required>
+                        <!-- 2. معلومات السكن -->
+                        <div class="space-y-3 pt-2">
+                            <h3 class="text-xs font-extrabold text-indigo-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 pb-1">معلومات السكن</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">رقم بطاقة السكن</label>
+                                    <input type="text" id="sub-housing-card" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">جهة الإصدار</label>
+                                    <input type="text" id="sub-housing-issuer" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">تاريخ الإصدار</label>
+                                    <input type="date" id="sub-housing-date" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs">
+                                </div>
                             </div>
                         </div>
 
-                        <!-- خيار البطاقة الوطنية -->
-                        <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-                            <label class="block text-xs font-black text-indigo-500">نوع المستند الثبوتي (الإثبات الشخصي):</label>
+                        <!-- 3. معلومات الهوية (البطاقة الوطنية أو الهوية الشخصية) -->
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+                            <h3 class="text-xs font-extrabold text-indigo-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 pb-1">معلومات الهوية الرسمية</h3>
+                            
                             <div class="flex items-center gap-6 text-xs font-bold">
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="idType" value="nationalCard" checked onchange="toggleIdFields('nationalCard')" class="text-indigo-600 focus:ring-indigo-500">
-                                    <span>هل تمتلك بطاقة وطنية موحدة؟</span>
+                                    <input type="radio" name="idType" value="nationalCard" checked onchange="toggleIdFields('nationalCard')" class="text-indigo-600">
+                                    <span>الهوية الوطنية (الموحدة)</span>
                                 </label>
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="idType" value="oldId" onchange="toggleIdFields('oldId')" class="text-indigo-600 focus:ring-indigo-500">
-                                    <span>هوية الأحوال المدنية القديمة</span>
+                                    <input type="radio" name="idType" value="personalId" onchange="toggleIdFields('personalId')" class="text-indigo-600">
+                                    <span>الهوية الشخصية القديمة</span>
                                 </label>
                             </div>
 
-                            <div id="field-national-card" class="space-y-3 pt-2">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">رقم البطاقة الوطنية (12 رقم)</label>
-                                        <input type="text" id="new-sub-national-id" placeholder="199500000000" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">صورة وجه البطاقة الوطنية</label>
-                                        <input type="file" id="file-national-front" accept="image/*" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs">
-                                    </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">رقم الهوية *</label>
+                                    <input type="text" id="sub-id-number" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">تاريخ الميلاد</label>
+                                    <input type="date" id="sub-dob" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">جهة الإصدار</label>
+                                    <input type="text" id="sub-id-issuer" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs">
                                 </div>
                             </div>
 
-                            <div id="field-old-id" class="space-y-3 pt-2 hidden">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">رقم هوية الأحوال المدنية</label>
-                                        <input type="text" id="new-sub-old-id" placeholder="000000" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">صورة الهوية</label>
-                                        <input type="file" id="file-old-id-img" accept="image/*" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs">
-                                    </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">تاريخ الإصدار</label>
+                                    <input type="date" id="sub-id-date" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold mb-1">الرقم العائلي</label>
+                                    <input type="text" id="sub-family-number" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr">
+                                </div>
+                            </div>
+
+                            <!-- معلومات أسماء الأم -->
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                                <div>
+                                    <label class="block text-[10px] font-bold mb-1">اسم الأم الأول *</label>
+                                    <input type="text" id="sub-mother-1" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold mb-1">اسم الأم الثاني</label>
+                                    <input type="text" id="sub-mother-2" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold mb-1">اسم الأم الثالث</label>
+                                    <input type="text" id="sub-mother-3" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold mb-1">عائلة الأم (اللقب)</label>
+                                    <input type="text" id="sub-mother-surname" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. إرفاق المستندات والبطاقات -->
+                        <div class="space-y-3 pt-2">
+                            <h3 class="text-xs font-extrabold text-indigo-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 pb-1">إرفاق المستندات والصور (الحد الأقصى 10 ميجا)</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                                <div class="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                                    <label class="font-bold block text-indigo-400">إرفاق الواجهة الأمامية للبطاقة الوطنية / الهوية</label>
+                                    <input type="file" id="file-id-front" accept="image/*,.pdf" class="w-full pt-1 text-[11px]">
+                                </div>
+                                <div class="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                                    <label class="font-bold block text-indigo-400">إرفاق الواجهة الخلفية للبطاقة الوطنية / الهوية</label>
+                                    <input type="file" id="file-id-back" accept="image/*,.pdf" class="w-full pt-1 text-[11px]">
+                                </div>
+                                <div class="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                                    <label class="font-bold block text-indigo-400">إرفاق الواجهة الأمامية لطاقة السكن</label>
+                                    <input type="file" id="file-housing-front" accept="image/*,.pdf" class="w-full pt-1 text-[11px]">
+                                </div>
+                                <div class="bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1">
+                                    <label class="font-bold block text-indigo-400">إرفاق الواجهة الخلفية لطاقة السكن</label>
+                                    <input type="file" id="file-housing-back" accept="image/*,.pdf" class="w-full pt-1 text-[11px]">
                                 </div>
                             </div>
                         </div>
 
                         <div class="bg-indigo-500/10 border border-indigo-500/20 p-3.5 rounded-xl text-xs space-y-2">
                             <label class="flex items-start gap-2.5 cursor-pointer">
-                                <input type="checkbox" id="new-sub-agree-terms" required class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
-                                <span class="font-bold leading-relaxed">أوافق على كافة الشروط والأحكام الخاصة بالاشتراك في "المشروع الوطني للإنترنت".</span>
+                                <input type="checkbox" id="new-sub-agree-terms" required class="mt-0.5 rounded text-indigo-600">
+                                <span class="font-bold leading-relaxed">أوافق على كافة الشروط والأحكام الخاصة بالاشتراك في المشروع الوطني للإنترنت وتعهد الالتزام بالضوابط.</span>
                             </label>
                         </div>
 
                         <div class="flex gap-3 pt-2">
                             <button type="submit" id="btn-submit-contract" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl font-extrabold text-sm shadow-md transition">
-                                📝 إرسال العقد وتسجيل المشترك
+                                📝 استمرار وإرسال العقد للمنظومة
                             </button>
                             <button type="button" onclick="switchTab('subscribers', 'المشتركين')" class="bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-5 py-3.5 rounded-xl font-bold text-xs">إلغاء</button>
                         </div>
