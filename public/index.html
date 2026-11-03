@@ -37,7 +37,7 @@
 </head>
 <body class="bg-lightBg text-slate-800 dark:bg-darkBg dark:text-slate-100 min-h-screen pb-24 transition-colors duration-200 text-sm">
 
-    <!-- شاشة التحميل -->
+    <!-- شاشة التحميل ببراند مركز وار -->
     <div id="global-loader" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center space-y-6 p-4">
         <div class="relative flex items-center justify-center">
             <div class="w-28 h-28 bg-gradient-to-tr from-indigo-600 via-purple-600 to-cyan-400 rounded-3xl flex items-center justify-center shadow-2xl w-logo-animation">
@@ -132,7 +132,7 @@
         </div>
 
         <main class="p-4 flex-1">
-            <!-- تاب المشتركين -->
+            <!-- تبويب قائمة المشتركين والجدول -->
             <section id="tab-subscribers" class="tab-content space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -178,7 +178,7 @@
                 </div>
             </section>
 
-            <!-- تاب إضافة مشترك وعقد جديد -->
+            <!-- تبويب إضافة مشترك وعقد جديد -->
             <section id="tab-new-subscriber" class="tab-content hidden space-y-4 max-w-3xl mx-auto">
                 <div class="bg-cardLight dark:bg-cardDark p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-5">
                     <div class="border-b border-slate-200 dark:border-slate-700 pb-3 flex justify-between items-center">
@@ -218,6 +218,7 @@
                             </div>
                         </div>
 
+                        <!-- خيار البطاقة الوطنية -->
                         <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
                             <label class="block text-xs font-black text-indigo-500">نوع المستند الثبوتي (الإثبات الشخصي):</label>
                             <div class="flex items-center gap-6 text-xs font-bold">
@@ -251,7 +252,7 @@
                                         <input type="text" id="new-sub-old-id" placeholder="000000" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr">
                                     </div>
                                     <div>
-                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">صورة الهوية (الأمامي والخلفي)</label>
+                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">صورة الهوية</label>
                                         <input type="file" id="file-old-id-img" accept="image/*" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs">
                                     </div>
                                 </div>
@@ -261,7 +262,7 @@
                         <div class="bg-indigo-500/10 border border-indigo-500/20 p-3.5 rounded-xl text-xs space-y-2">
                             <label class="flex items-start gap-2.5 cursor-pointer">
                                 <input type="checkbox" id="new-sub-agree-terms" required class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
-                                <span class="font-bold leading-relaxed">أوافق على كافة الشروط والأحكام الخاصة بالاشتراك في "المشروع الوطني للإنترنت" وتعهد الالتزام بضوابط وزارة الاتصالات.</span>
+                                <span class="font-bold leading-relaxed">أوافق على كافة الشروط والأحكام الخاصة بالاشتراك في "المشروع الوطني للإنترنت".</span>
                             </label>
                         </div>
 
@@ -275,7 +276,7 @@
                 </div>
             </section>
 
-            <!-- تاب الوكلاء -->
+            <!-- تبويب الوكلاء -->
             <section id="tab-agents" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
                     <h2 class="text-base font-extrabold border-b border-slate-200 dark:border-slate-700 pb-2">إضافة وكيل ثانوي جديد</h2>
@@ -290,7 +291,7 @@
                 </div>
             </section>
 
-            <!-- تاب التذاكر -->
+            <!-- تبويب التذاكر -->
             <section id="tab-tickets" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
                     <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -301,7 +302,7 @@
                 </div>
             </section>
 
-            <!-- تاب المهام -->
+            <!-- تبويب المهام -->
             <section id="tab-tasks" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
                     <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -313,7 +314,7 @@
             </section>
         </main>
 
-        <!-- صفحة تفاصيل المشترك المستقلة -->
+        <!-- صفحة تفاصيل المشترك -->
         <div id="subscriber-detail-page" class="hidden min-h-screen bg-lightBg dark:bg-darkBg fixed inset-0 z-50 p-4 flex flex-col space-y-4 overflow-y-auto">
             <div class="flex justify-between items-center bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md">
                 <div class="flex items-center gap-3">
