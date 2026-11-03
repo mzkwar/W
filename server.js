@@ -32,7 +32,7 @@ db.serialize(() => {
     )`);
 });
 
-// مسار تسجيل الدخول للمنظومة
+// مصادقة النظام الرئيسي
 app.post('/api/ftth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -168,7 +168,7 @@ app.get('/api/ftth/requests', async (req, res) => {
     }
 });
 
-// العقود وشروط الخدمة
+// جلب العقود والشروط
 app.get('/api/ftth/contracts', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -179,11 +179,11 @@ app.get('/api/ftth/contracts', async (req, res) => {
         });
         res.json(response.data);
     } catch (error) {
-        res.status(500).json({ error: "تعذر جلب بيانات العقد والشروط" });
+        res.status(500).json({ error: "تعذر جلب العقد" });
     }
 });
 
-// إرسال عقد وتسجيل مشترك جديد
+// إرسال عقد ومشترك جديد
 app.post('/api/ftth/contracts/submit', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -206,7 +206,7 @@ app.post('/api/ftth/contracts/submit', async (req, res) => {
     }
 });
 
-// الوكلاء الثانويين
+// إدارة الوكلاء الثانويين
 app.post('/api/admin/sub-agents', (req, res) => {
     const { username, password, name } = req.body;
     if (!username || !password || !name) return res.status(400).json({ error: "جميع الحقول مطلوبة" });
