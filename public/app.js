@@ -14,7 +14,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         
         await Promise.all([
             loadSubscribersFast(),
-            loadWalletBalance(),
             loadWalletTransactions(),
             loadSessions(),
             loadAgents(),
@@ -273,34 +272,6 @@ function formatSessionDetails(sub) {
     `;
 }
 
-async function loadWalletBalance() {
-    const badge = document.getElementById('wallet-badge');
-    const headerBalance = document.getElementById('wallet-header-balance');
-    if (!badge && !headerBalance) return;
-
-    try {
-        const cleanToken = authToken.replace('Bearer ', '');
-        const accountId = getAccountIdFromToken(cleanToken);
-
-        const res = await fetch(`/api/ftth/wallet/${accountId}`, { headers: { 'Authorization': authToken } });
-        if (handleAuthError(res)) return;
-
-        if (res.ok) {
-            const walletData = await res.json();
-            let balance = walletData.model?.balance ?? walletData.balance ?? walletData ?? 0;
-            const formattedBalance = `${Number(balance).toLocaleString()} د.ع`;
-            if (badge) badge.innerText = `الرصيد: ${formattedBalance}`;
-            if (headerBalance) headerBalance.innerText = formattedBalance;
-        } else {
-            if (badge) badge.innerText = `الرصيد: متاح`;
-            if (headerBalance) headerBalance.innerText = `متاح`;
-        }
-    } catch (e) {
-        if (badge) badge.innerText = `الرصيد: --`;
-        if (headerBalance) headerBalance.innerText = `--`;
-    }
-}
-
 async function loadWalletTransactions() {
     try {
         const cleanToken = authToken.replace('Bearer ', '');
@@ -311,7 +282,14 @@ async function loadWalletTransactions() {
 
         if (res.ok) {
             const data = await res.json();
-            cachedTransactions = Array.isArray(data) ? data : (data.items || data.transactions || data.model || []);
+            const rawItems = Array.isArray(data) ? data : (data.items || data.transactions || data.model || []);
+            
+            // عدم عرض الحركات التي تكون قيمتها 0
+            cachedTransactions = rawItems.filter(tx => {
+                let rawAmount = tx.transactionAmount?.value !== undefined ? tx.transactionAmount.value : (tx.amount || 0);
+                return Number(rawAmount) !== 0;
+            });
+
             renderTransactionsTable(cachedTransactions);
         } else {
             const tbody = document.getElementById('transactions-table-body');
@@ -344,11 +322,12 @@ function renderTransactionsTable(items) {
         const dateStr = formatDateClean(tx.occuredAt || tx.createdAt);
         const status = tx.status || 'مكتملة';
         
-        let customerName = extractValue(tx.customer);
-        let isAgentTx = tx.type === 'WALLET_TRANSFER' || (tx.walletOwnerType?.displayValue === 'Partner' && !customerName);
+        // تحديد نوع الدفع بناءً على paymentMode (Card تعني بطاقة المشترك، Wallet تعني الوكيل)
+        let paymentModeVal = tx.paymentMode || tx.paymentMethod?.displayValue || '';
+        let isCard = paymentModeVal.toLowerCase() === 'card' || (tx.customer && tx.customer.id);
         
-        let typeLabel = customerName ? `مشترك: ${customerName}` : (isAgentTx ? 'دفعة وكيل / شريك' : 'عملية مالية عامة');
-        let typeBadgeClass = customerName ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-purple-500/10 text-purple-500 border border-purple-500/20';
+        let typeLabel = isCard ? 'بطاقة المشترك (Card)' : 'الوكيل (Wallet)';
+        let typeBadgeClass = isCard ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-purple-500/10 text-purple-500 border border-purple-500/20';
 
         tbody.innerHTML += `
             <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/60 transition">
@@ -367,14 +346,20 @@ function filterTransactions() {
     if (filterVal === 'all') {
         renderTransactionsTable(cachedTransactions);
         showToast("عرض كافة المعاملات");
-    } else if (filterVal === 'agent') {
-        const filtered = cachedTransactions.filter(tx => !tx.customer || !tx.customer.id || tx.customer.displayValue === "");
+    } else if (filterVal === 'Card') {
+        const filtered = cachedTransactions.filter(tx => {
+            let mode = (tx.paymentMode || tx.paymentMethod?.displayValue || '').toLowerCase();
+            return mode === 'card' || (tx.customer && tx.customer.id);
+        });
         renderTransactionsTable(filtered);
-        showToast("عرض دفعات الوكلاء والشركاء فقط");
-    } else if (filterVal === 'subscriber') {
-        const filtered = cachedTransactions.filter(tx => tx.customer && tx.customer.id && tx.customer.displayValue !== "");
+        showToast("عرض دفعات بطاقة المشترك (Card)");
+    } else if (filterVal === 'Wallet') {
+        const filtered = cachedTransactions.filter(tx => {
+            let mode = (tx.paymentMode || tx.paymentMethod?.displayValue || '').toLowerCase();
+            return mode === 'wallet' || (!tx.customer || !tx.customer.id);
+        });
         renderTransactionsTable(filtered);
-        showToast("عرض دفعات المشتركين فقط");
+        showToast("عرض دفعات الوكيل (Wallet)");
     }
 }
 
