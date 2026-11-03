@@ -37,7 +37,7 @@
 </head>
 <body class="bg-lightBg text-slate-800 dark:bg-darkBg dark:text-slate-100 min-h-screen pb-24 transition-colors duration-200 text-sm">
 
-    <!-- شاشة التحميل الخاصة بمركز وار -->
+    <!-- شاشة التحميل -->
     <div id="global-loader" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center space-y-6 p-4">
         <div class="relative flex items-center justify-center">
             <div class="w-28 h-28 bg-gradient-to-tr from-indigo-600 via-purple-600 to-cyan-400 rounded-3xl flex items-center justify-center shadow-2xl w-logo-animation">
@@ -85,6 +85,7 @@
                 <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black text-lg">W</div>
                 <div>
                     <h1 class="text-base font-extrabold" id="header-title">مركز وار لخدمات الانترنت</h1>
+                    <p class="text-[11px] text-amber-500 font-bold dir-ltr">Hotline: 6145</p>
                 </div>
                 <span id="wallet-badge" class="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-xl text-xs font-bold">الرصيد: جاري التحميل...</span>
             </div>
@@ -96,7 +97,7 @@
             </div>
         </header>
 
-        <!-- الإحصائيات بتصميم دائري جذاب -->
+        <!-- الإحصائيات الدائرية الجذابة -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-4">
             <div onclick="filterOnlineStatus('all')" class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500 transition">
                 <div class="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 flex items-center justify-center mb-2 shadow-inner">
@@ -131,6 +132,7 @@
         </div>
 
         <main class="p-4 flex-1">
+            <!-- تاب المشتركين -->
             <section id="tab-subscribers" class="tab-content space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -143,6 +145,9 @@
                             </div>
                         </div>
                         <div class="flex gap-2 w-full sm:w-auto">
+                            <button onclick="switchTab('new-subscriber', 'إضافة مشترك جديد')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap shadow flex items-center gap-1">
+                                <span>➕ إضافة مشترك جديد</span>
+                            </button>
                             <select id="select-agent-assign" class="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold p-2.5 rounded-xl flex-1">
                                 <option value="">اختر وكيلاً ثانويًا...</option>
                             </select>
@@ -173,6 +178,104 @@
                 </div>
             </section>
 
+            <!-- تاب إضافة مشترك وعقد جديد -->
+            <section id="tab-new-subscriber" class="tab-content hidden space-y-4 max-w-3xl mx-auto">
+                <div class="bg-cardLight dark:bg-cardDark p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-5">
+                    <div class="border-b border-slate-200 dark:border-slate-700 pb-3 flex justify-between items-center">
+                        <div>
+                            <h2 class="text-lg font-black text-indigo-600 dark:text-indigo-400">إضافة مشترك جديد وافتتاح عقد (FTTH)</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">مركز وار لخدمات الإنترنت - تسجيل رسمي</p>
+                        </div>
+                        <span class="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3 py-1 rounded-xl text-xs font-bold">عقد إلكتروني معتمد</span>
+                    </div>
+
+                    <form id="new-subscriber-form" onsubmit="submitNewSubscriberContract(event)" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold mb-1">الاسم الرباعي للمشترك *</label>
+                                <input type="text" id="new-sub-fullname" placeholder="مثال: مهدي ظافر كمر" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-indigo-500" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold mb-1">رقم الهاتف الرئيسي *</label>
+                                <input type="tel" id="new-sub-phone" placeholder="07700000000" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm font-mono dir-ltr focus:outline-none focus:border-indigo-500" required>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold mb-1">نوع الاشتراك / الباقة المطلوب *</label>
+                                <select id="new-sub-package" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm font-bold focus:outline-none focus:border-indigo-500" required>
+                                    <option value="">اختر الباقة...</option>
+                                    <option value="Home Economics">Home Economics (اقتصادية)</option>
+                                    <option value="Home Standard">Home Standard (اعتيادية)</option>
+                                    <option value="Home Premium">Home Premium (ممتازة)</option>
+                                    <option value="Commercial Super">Commercial Super (تجاري)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold mb-1">العنوان / المحلة والزقاق *</label>
+                                <input type="text" id="new-sub-address" placeholder="اسم المنطقة أو الحي" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-sm font-semibold focus:outline-none focus:border-indigo-500" required>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                            <label class="block text-xs font-black text-indigo-500">نوع المستند الثبوتي (الإثبات الشخصي):</label>
+                            <div class="flex items-center gap-6 text-xs font-bold">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="idType" value="nationalCard" checked onchange="toggleIdFields('nationalCard')" class="text-indigo-600 focus:ring-indigo-500">
+                                    <span>هل تمتلك بطاقة وطنية موحدة؟</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="idType" value="oldId" onchange="toggleIdFields('oldId')" class="text-indigo-600 focus:ring-indigo-500">
+                                    <span>هوية الأحوال المدنية القديمة</span>
+                                </label>
+                            </div>
+
+                            <div id="field-national-card" class="space-y-3 pt-2">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">رقم البطاقة الوطنية (12 رقم)</label>
+                                        <input type="text" id="new-sub-national-id" placeholder="199500000000" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">صورة وجه البطاقة الوطنية</label>
+                                        <input type="file" id="file-national-front" accept="image/*" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="field-old-id" class="space-y-3 pt-2 hidden">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">رقم هوية الأحوال المدنية</label>
+                                        <input type="text" id="new-sub-old-id" placeholder="000000" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono dir-ltr">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-bold text-slate-500 mb-1">صورة الهوية (الأمامي والخلفي)</label>
+                                        <input type="file" id="file-old-id-img" accept="image/*" class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-indigo-500/10 border border-indigo-500/20 p-3.5 rounded-xl text-xs space-y-2">
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="new-sub-agree-terms" required class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
+                                <span class="font-bold leading-relaxed">أوافق على كافة الشروط والأحكام الخاصة بالاشتراك في "المشروع الوطني للإنترنت" وتعهد الالتزام بضوابط وزارة الاتصالات.</span>
+                            </label>
+                        </div>
+
+                        <div class="flex gap-3 pt-2">
+                            <button type="submit" id="btn-submit-contract" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-xl font-extrabold text-sm shadow-md transition">
+                                📝 إرسال العقد وتسجيل المشترك
+                            </button>
+                            <button type="button" onclick="switchTab('subscribers', 'المشتركين')" class="bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-5 py-3.5 rounded-xl font-bold text-xs">إلغاء</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- تاب الوكلاء -->
             <section id="tab-agents" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
                     <h2 class="text-base font-extrabold border-b border-slate-200 dark:border-slate-700 pb-2">إضافة وكيل ثانوي جديد</h2>
@@ -187,6 +290,7 @@
                 </div>
             </section>
 
+            <!-- تاب التذاكر -->
             <section id="tab-tickets" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
                     <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -197,6 +301,7 @@
                 </div>
             </section>
 
+            <!-- تاب المهام -->
             <section id="tab-tasks" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
                     <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -225,6 +330,9 @@
         <nav class="fixed bottom-0 left-0 right-0 bg-cardLight dark:bg-cardDark border-t border-slate-200 dark:border-slate-700 flex justify-around p-3 z-30 shadow-lg">
             <button onclick="switchTab('subscribers', 'المشتركين')" class="nav-btn text-indigo-500 flex flex-col items-center gap-1 text-xs font-extrabold" id="btn-subscribers">
                 <span>المشتركين</span>
+            </button>
+            <button onclick="switchTab('new-subscriber', 'إضافة مشترك')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs font-semibold" id="btn-new-subscriber">
+                <span>➕ مشترك جديد</span>
             </button>
             <button onclick="switchTab('agents', 'وكلاء النظام')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs font-semibold" id="btn-agents">
                 <span>الوكلاء</span>
