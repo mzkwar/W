@@ -32,6 +32,7 @@ db.serialize(() => {
     )`);
 });
 
+// مسار تسجيل الدخول للمنظومة
 app.post('/api/ftth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -85,7 +86,7 @@ app.get('/api/ftth/ont', async (req, res) => {
     }
 });
 
-// ملف العميل الشامل واشتراكاته بالاعتماد على customerId
+// ملف العميل الشامل
 app.get('/api/ftth/customer/:id', async (req, res) => {
     const token = req.headers.authorization;
     const customerId = req.params.id;
@@ -137,7 +138,7 @@ app.get('/api/ftth/sessions', async (req, res) => {
     }
 });
 
-// مسار التذاكر المطابق لهيكلك الجديد
+// التذاكر
 app.get('/api/ftth/tickets', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -152,7 +153,7 @@ app.get('/api/ftth/tickets', async (req, res) => {
     }
 });
 
-// مسار المهام / الطلبات (Requests) المطابق لهيكلك الجديد
+// المهام والطلبات
 app.get('/api/ftth/requests', async (req, res) => {
     const token = req.headers.authorization;
     if (!token) return res.status(401).json({ error: "غير مصرح" });
@@ -167,6 +168,45 @@ app.get('/api/ftth/requests', async (req, res) => {
     }
 });
 
+// العقود وشروط الخدمة
+app.get('/api/ftth/contracts', async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.get('https://admin.ftth.iq/api/contracts', {
+            headers: { 'Authorization': token, 'Accept': 'application/json' }
+        });
+        res.json(response.data);
+    } catch (error) {
+        res.status(500).json({ error: "تعذر جلب بيانات العقد والشروط" });
+    }
+});
+
+// إرسال عقد وتسجيل مشترك جديد
+app.post('/api/ftth/contracts/submit', async (req, res) => {
+    const token = req.headers.authorization;
+    if (!token) return res.status(401).json({ error: "غير مصرح" });
+
+    try {
+        const response = await axios.post('https://admin.ftth.iq/api/contracts', req.body, {
+            headers: { 
+                'Authorization': token, 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json' 
+            }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error("خطأ إرسال العقد:", error.response?.data || error.message);
+        res.status(error.response?.status || 500).json({ 
+            error: "فشل إرسال عقد المشترك", 
+            details: error.response?.data || error.message 
+        });
+    }
+});
+
+// الوكلاء الثانويين
 app.post('/api/admin/sub-agents', (req, res) => {
     const { username, password, name } = req.body;
     if (!username || !password || !name) return res.status(400).json({ error: "جميع الحقول مطلوبة" });
@@ -202,22 +242,6 @@ app.post('/api/admin/assign', (req, res) => {
     stmt.finalize();
 
     res.json({ message: `تم تحويل ${subscriberIds.length} مشترك بنجاح` });
-});
-
-app.post('/api/subagent/login', (req, res) => {
-    const { username, password } = req.body;
-    db.get(`SELECT id, name, username FROM sub_agents WHERE username = ? AND password = ?`, [username, password], (err, row) => {
-        if (err || !row) return res.status(401).json({ error: "بيانات دخول الوكيل غير صحيحة" });
-        res.json(row);
-    });
-});
-
-app.get('/api/subagent/my-subscribers/:subAgentId', (req, res) => {
-    const { subAgentId } = req.params;
-    db.all(`SELECT subscriber_id FROM assigned_subscribers WHERE sub_agent_id = ?`, [subAgentId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows.map(r => r.subscriber_id));
-    });
 });
 
 const PORT = process.env.PORT || 3000;
