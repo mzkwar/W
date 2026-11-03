@@ -123,7 +123,7 @@ app.get('/api/ftth/wallet/:partnerId', async (req, res) => {
     }
 });
 
-// سجل المعاملات والدفعات للمحفظة (متوافق مع الهيكل الصحيح للـ API)
+// سجل المعاملات والدفعات للمحفظة
 app.get('/api/ftth/transactions/:partnerId', async (req, res) => {
     const token = req.headers.authorization;
     const partnerId = req.params.partnerId;
