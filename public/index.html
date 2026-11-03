@@ -37,7 +37,7 @@
 </head>
 <body class="bg-lightBg text-slate-800 dark:bg-darkBg dark:text-slate-100 min-h-screen pb-24 transition-colors duration-200 text-sm">
 
-    <!-- شاشة التحميل ببراند مركز وار -->
+    <!-- شاشة التحميل -->
     <div id="global-loader" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center space-y-6 p-4">
         <div class="relative flex items-center justify-center">
             <div class="w-28 h-28 bg-gradient-to-tr from-indigo-600 via-purple-600 to-cyan-400 rounded-3xl flex items-center justify-center shadow-2xl w-logo-animation">
@@ -46,7 +46,6 @@
         </div>
         <div class="text-center space-y-2">
             <p class="text-2xl font-black text-white tracking-wide">مركز وار لخدمات الانترنت</p>
-            <p class="text-sm font-bold text-indigo-400">للاتصال والاستفسار: <span class="text-amber-400 font-mono text-base">6145</span></p>
             <p class="text-xs text-slate-400 animate-pulse pt-2">جاري الاتصال بالسيرفر وتحديث البيانات...</p>
         </div>
     </div>
@@ -74,7 +73,6 @@
                 </div>
                 <button type="submit" id="login-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-bold text-base shadow-lg transition">دخول النظام</button>
             </form>
-            <p class="text-center text-xs text-slate-400 font-bold">مبيعات وخدمات المركز: <span class="text-amber-400 font-mono">6145</span></p>
         </div>
     </div>
 
@@ -96,7 +94,7 @@
             </div>
         </header>
 
-        <!-- الإحصائيات الدائرية الجذابة -->
+        <!-- الإحصائيات الدائرية -->
         <div class="p-4 grid grid-cols-2 md:grid-cols-5 gap-4">
             <div onclick="filterOnlineStatus('all')" class="bg-cardLight dark:bg-cardDark p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer hover:border-indigo-500 transition">
                 <div class="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 flex items-center justify-center mb-2 shadow-inner">
@@ -165,7 +163,6 @@
                                 <tr>
                                     <th class="p-3.5"><input type="checkbox" id="select-all"></th>
                                     <th class="p-3.5 cursor-pointer hover:text-indigo-500 select-none" onclick="sortSubscribersByName()">المشترك / اسم المستخدم ↕</th>
-                                    <th class="p-3.5 cursor-pointer hover:text-indigo-500 select-none" onclick="sortSubscribersByPower()">البور (Rx Power) ↕</th>
                                     <th class="p-3.5">حالة الاشتراك</th>
                                     <th class="p-3.5 cursor-pointer hover:text-indigo-500 select-none" onclick="sortSubscribersByOnlineStatus()">الاتصال ↕</th>
                                     <th class="p-3.5 cursor-pointer hover:text-indigo-500 select-none" onclick="sortSubscribersByPlanType()">نوع الإشتراك ↕</th>
@@ -177,7 +174,7 @@
                 </div>
             </section>
 
-            <!-- تبويب إضافة مشترك وعقد جديد (مربوط ديناميكياً مع الموقع الأساسي) -->
+            <!-- تبويب إضافة مشترك وعقد جديد -->
             <section id="tab-new-subscriber" class="tab-content hidden space-y-4 max-w-4xl mx-auto">
                 <div class="bg-cardLight dark:bg-cardDark p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
                     <div class="border-b border-slate-200 dark:border-slate-700 pb-3 flex justify-between items-center">
@@ -269,7 +266,7 @@
                 </div>
             </section>
 
-            <!-- باقي التبويبات (الوكلاء، التذاكر، المهام) -->
+            <!-- باقي التبويبات -->
             <section id="tab-agents" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
                     <h2 class="text-base font-extrabold border-b border-slate-200 dark:border-slate-700 pb-2">إضافة وكيل ثانوي جديد</h2>
