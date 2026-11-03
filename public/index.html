@@ -266,6 +266,51 @@
                 </div>
             </section>
 
+            <!-- تبويب المحفظة وسجل المعاملات (جديد) -->
+            <section id="tab-wallet" class="tab-content hidden space-y-4 max-w-5xl mx-auto">
+                <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 dark:bg-slate-900/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
+                        <div>
+                            <h2 class="text-base font-black text-emerald-500">محفظة مركز وار لخدمات الإنترنت</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">متابعة العمليات المالية، الدفعات، وفلترة المعاملات بدقة</p>
+                        </div>
+                        <div id="wallet-balance-box" class="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 rounded-xl text-right">
+                            <span class="block text-[10px] text-slate-400 font-bold">الرصيد الحالي المتاح</span>
+                            <span id="wallet-header-balance" class="text-sm font-black text-emerald-500">جاري الحساب...</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2">
+                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                            <label class="text-xs font-bold whitespace-nowrap">فرز حسب النوع:</label>
+                            <select id="filter-transaction-type" onchange="filterTransactions()" class="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold p-2.5 rounded-xl">
+                                <option value="all">جميع المعاملات</option>
+                                <option value="agent">دفعات الوكلاء</option>
+                                <option value="subscriber">دفعات المشتركين</option>
+                            </select>
+                        </div>
+                        <span id="transactions-count-badge" class="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap">العمليات: 0</span>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/70">
+                        <table class="w-full text-right text-sm">
+                            <thead class="bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold">
+                                <tr>
+                                    <th class="p-3.5">رقم المعاملة / العملية</th>
+                                    <th class="p-3.5">نوع الدفع (وكيل / مشترك)</th>
+                                    <th class="p-3.5">المبلغ</th>
+                                    <th class="p-3.5">التاريخ والوقت</th>
+                                    <th class="p-3.5">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactions-table-body" class="divide-y divide-slate-200 dark:divide-slate-700/60 font-medium">
+                                <tr><td colspan="5" class="p-6 text-center text-slate-400 font-bold">جاري تحميل سجل المعاملات...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
             <!-- باقي التبويبات -->
             <section id="tab-agents" class="tab-content hidden space-y-4">
                 <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
@@ -322,6 +367,9 @@
             </button>
             <button onclick="switchTab('new-subscriber', 'إضافة مشترك')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs font-semibold" id="btn-new-subscriber">
                 <span>➕ مشترك جديد</span>
+            </button>
+            <button onclick="switchTab('wallet', 'محفظة الدفعات')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs font-semibold" id="btn-wallet">
+                <span>💰 المحفظة</span>
             </button>
             <button onclick="switchTab('agents', 'وكلاء النظام')" class="nav-btn text-slate-400 flex flex-col items-center gap-1 text-xs font-semibold" id="btn-agents">
                 <span>الوكلاء</span>
