@@ -60,7 +60,60 @@ function showToast(message, type = 'info') {
         return;
     }
     const toast = document.createElement('div');
-    toast.className = `pointer-events-auto px-4 py-3 rounded-xl shadow-2xl text-xs font-extrabold text-white transition-all duration-300 transform translate-y-[-20px] opacity-0 ${type === 'error' ? 'bg-rose-600 border border-rose-500' : 'bg-indigo-600 border border-indigo-500'}`; toast.innerText = message; container.appendChild(toast);  setTimeout(() => toast.classList.remove('translate-y-[-20px]', 'opacity-0'), 10); setTimeout(() => { toast.classList.add('translate-y-[-20px]', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000); }  function handleAuthError(res) { if (res.status === 401) { showToast("انتهت صلاحية الجلسة، يرجى إعادة تسجيل الدخول", "error"); logout(); return true; } return false; }  function getAccountIdFromToken(token) { try { const base64Url = token.split('.')[1]; const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/'); const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) { return '\%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join('')); const payload = JSON.parse(jsonPayload); return payload.AccountId \vert{}\vert{} payload.sub \vert{}\vert{} '16909'; } catch (e) { return '16909'; } }  document.getElementById('login-form').addEventListener('submit', async (e) => { e.preventDefault(); const btn = document.getElementById('login-btn'); btn.innerText = 'جاري الاتصال...'; btn.disabled = true;  try { const res = await fetch('/api/ftth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: document.getElementById('ftth-email').value, password: document.getElementById('ftth-password').value }) }); const data = await res.json(); const rawToken = data.access_token \vert{}\vert{} data.token \vert{}\vert{} data.accessToken;  if (res.ok && rawToken) { authToken = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;
+    toast.className = `pointer-events-auto px-4 py-3 rounded-xl shadow-2xl text-xs font-extrabold text-white transition-all duration-300 transform translate-y-[-20px] opacity-0 ${type === 'error' ? 'bg-rose-600 border border-rose-500' : 'bg-indigo-600 border border-indigo-500'}`;
+    toast.innerText = message;
+    container.appendChild(toast);
+    
+    setTimeout(() => toast.classList.remove('translate-y-[-20px]', 'opacity-0'), 10);
+    setTimeout(() => {
+        toast.classList.add('translate-y-[-20px]', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function handleAuthError(res) {
+    if (res.status === 401) {
+        showToast("انتهت صلاحية الجلسة، يرجى إعادة تسجيل الدخول", "error");
+        logout();
+        return true;
+    }
+    return false;
+}
+
+function getAccountIdFromToken(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        const payload = JSON.parse(jsonPayload);
+        return payload.AccountId || payload.sub || '16909';
+    } catch (e) {
+        return '16909';
+    }
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    btn.innerText = 'جاري الاتصال...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/ftth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: document.getElementById('ftth-email').value,
+                password: document.getElementById('ftth-password').value
+            })
+        });
+        const data = await res.json();
+        const rawToken = data.access_token || data.token || data.accessToken;
+
+        if (res.ok && rawToken) {
+            authToken = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;
             localStorage.setItem('ftth_token', authToken);
             location.reload();
         } else {
@@ -77,7 +130,65 @@ function showToast(message, type = 'info') {
 
 function switchTab(tabName, title) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    document.getElementById(`tab-${tabName}`).classList.remove('hidden'); document.getElementById('header-title').innerText = title \vert{}\vert{} 'مركز وار لخدمات الانترنت';  document.querySelectorAll('.nav-btn').forEach(btn => { btn.classList.remove('text-indigo-500', 'font-extrabold'); btn.classList.add('text-slate-400'); });  // ربط الأزرار السفلية بالتبويبات let btnId = 'btn-subscribers'; if (tabName === 'new-subscriber') btnId = 'btn-new-subscriber'; else if (tabName === 'agents') btnId = 'btn-agents'; else if (tabName === 'tickets') btnId = 'btn-tickets'; else if (tabName === 'tasks') btnId = 'btn-tasks';  const activeBtn = document.getElementById(btnId); if (activeBtn) activeBtn.classList.add('text-indigo-500', 'font-extrabold'); }  function extractValue(field) { if (!field && field !== false && field !== 0) return ''; if (typeof field === 'object') { return field.displayValue \vert{}\vert{} field.name \vert{}\vert{} field.title \vert{}\vert{} field.id \vert{}\vert{} JSON.stringify(field); } return String(field); }  function cleanUsername(userStr) { const raw = extractValue(userStr); return raw.startsWith('@') ? raw.substring(1) : raw; }  function getSubscriptionType(sub) { let typeVal = ''; if (sub.self) { typeVal = extractValue(sub.self); } if ((!typeVal \vert{}\vert{} typeVal.toUpperCase() === 'SELF') && sub.package) { typeVal = extractValue(sub.package); } return typeVal \vert{}\vert{} 'SELF'; }  function formatDateClean(isoString) { if (!isoString) return 'غير محدد'; try { const date = new Date(isoString); const now = new Date(); const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24));  const datePart = date.toISOString().split('T')[0]; const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });  let statusText = diffDays > 0 ? `[ ينتهي بعد ${diffDays} يوم ]` : diffDays === 0 ? `[ ينتهي اليوم ]` : `[ منذ ${Math.abs(diffDays)} يوم ]`; return `${datePart} ${timePart}${statusText}`;
+    const targetTab = document.getElementById(`tab-${tabName}`);
+    if(targetTab) targetTab.classList.remove('hidden');
+    
+    const headerTitle = document.getElementById('header-title');
+    if(headerTitle) headerTitle.innerText = title || 'مركز وار لخدمات الانترنت';
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('text-indigo-500', 'font-extrabold');
+        btn.classList.add('text-slate-400', 'font-semibold');
+    });
+    
+    // ربط التبويب بالزر الخاص به في الناف بار السفلي
+    let btnId = 'btn-subscribers';
+    if(tabName === 'new-subscriber') btnId = 'btn-new-subscriber';
+    else if(tabName === 'agents') btnId = 'btn-agents';
+    else if(tabName === 'tickets') btnId = 'btn-tickets';
+    else if(tabName === 'tasks') btnId = 'btn-tasks';
+
+    const activeBtn = document.getElementById(btnId);
+    if (activeBtn) {
+        activeBtn.classList.remove('text-slate-400', 'font-semibold');
+        activeBtn.classList.add('text-indigo-500', 'font-extrabold');
+    }
+}
+
+function extractValue(field) {
+    if (!field && field !== false && field !== 0) return '';
+    if (typeof field === 'object') {
+        return field.displayValue || field.name || field.title || field.id || JSON.stringify(field);
+    }
+    return String(field);
+}
+
+function cleanUsername(userStr) {
+    const raw = extractValue(userStr);
+    return raw.startsWith('@') ? raw.substring(1) : raw;
+}
+
+function getSubscriptionType(sub) {
+    let typeVal = '';
+    if (sub.self) typeVal = extractValue(sub.self);
+    if ((!typeVal || typeVal.toUpperCase() === 'SELF') && sub.package) {
+        typeVal = extractValue(sub.package);
+    }
+    return typeVal || 'SELF';
+}
+
+function formatDateClean(isoString) {
+    if (!isoString) return 'غير محدد';
+    try {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffDays = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
+        
+        const datePart = date.toISOString().split('T')[0];
+        const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        
+        let statusText = diffDays > 0 ? `[ ينتهي بعد ${diffDays} يوم ]` : diffDays === 0 ? `[ ينتهي اليوم ]` : `[ منذ ${Math.abs(diffDays)} يوم ]`;
+        return `${datePart} ${timePart} ${statusText}`;
     } catch (e) {
         return isoString;
     }
@@ -89,8 +200,10 @@ function formatDuration(seconds) {
     const hours = Math.floor((seconds % (3600 * 24)) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     let res = '';
-    if (days > 0) res += `${days} يوم `; if (hours > 0) res += `${hours} ساعة `;
-    if (minutes > 0) res += `${minutes} دقيقة`; return res.trim() \vert{}\vert{} `${seconds} ثانية`;
+    if (days > 0) res += `${days} يوم `;
+    if (hours > 0) res += `${hours} ساعة `;
+    if (minutes > 0) res += `${minutes} دقيقة`;
+    return res.trim() || `${seconds} ثانية`;
 }
 
 function formatOntData(ontData, subDeviceDetails) {
@@ -125,7 +238,7 @@ function formatOntData(ontData, subDeviceDetails) {
                 </div>
                 <div class="flex justify-between items-center bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
                     <span class="text-slate-500 dark:text-slate-400 font-bold">FDT / FAT:</span>
-                    <span class="font-extrabold text-sm">${fdtVal} /${fatVal}</span>
+                    <span class="font-extrabold text-sm">${fdtVal} / ${fatVal}</span>
                 </div>
             </div>
         </div>
@@ -160,7 +273,13 @@ async function loadWalletBalance() {
         const cleanToken = authToken.replace('Bearer ', '');
         const accountId = getAccountIdFromToken(cleanToken);
 
-        const res = await fetch(`/api/ftth/wallet/${accountId}`, { headers: { 'Authorization': authToken } }); if (handleAuthError(res)) return;  if (res.ok) { const walletData = await res.json(); let balance = walletData.model?.balance ?? walletData.balance ?? walletData ?? 0; badge.innerText = `الرصيد: ${Number(balance).toLocaleString()} د.ع`;
+        const res = await fetch(`/api/ftth/wallet/${accountId}`, { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
+        if (res.ok) {
+            const walletData = await res.json();
+            let balance = walletData.model?.balance ?? walletData.balance ?? walletData ?? 0;
+            badge.innerText = `الرصيد: ${Number(balance).toLocaleString()} د.ع`;
         } else {
             badge.innerText = `الرصيد: متاح`;
         }
@@ -189,7 +308,7 @@ async function loadSubscribersFast() {
         updateGlobalStats(cachedSubscribers);
         renderTableRows(cachedSubscribers);
         
-        // جلب البور في الخلفية بسلاسة
+        // جلب البور في الخلفية بدون تجميد الواجهة
         fetchPowerInBackround(cachedSubscribers);
 
     } catch (err) {
@@ -210,9 +329,79 @@ async function fetchPowerInBackround(subscribers) {
             if (!username || username === 'N/A') return;
 
             try {
-                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } }); if (res.ok) { const ontData = await res.json(); if (ontData?.model?.rxPower !== undefined) { sub.rxPower = ontData.model.rxPower; updatePowerCellInTable(username, sub.rxPower); } } } catch (e) {} })); } }  function updatePowerCellInTable(username, powerValue) { const el = document.getElementById(`power-${username}`);
+                const res = await fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } });
+                if (res.ok) {
+                    const ontData = await res.json();
+                    if (ontData?.model?.rxPower !== undefined) {
+                        sub.rxPower = ontData.model.rxPower;
+                        updatePowerCellInTable(username, sub.rxPower);
+                    }
+                }
+            } catch (e) {}
+        }));
+    }
+}
+
+function updatePowerCellInTable(username, powerValue) {
+    const el = document.getElementById(`power-${username}`);
     if (el) {
-        el.innerText = `${powerValue} dBm`; el.className = 'font-mono font-bold text-cyan-500 dir-ltr text-sm animate-pulse'; setTimeout(() => el.classList.remove('animate-pulse'), 1000); } }  function updateGlobalStats(items) { let total = items.length; let active = 0; let online = 0; let offline = 0; let expiringCount = 0;  const now = new Date(); items.forEach(sub => { const statusVal = extractValue(sub.status); const isActive = sub.isActive \vert{}\vert{} statusVal.toLowerCase() === 'active' \vert{}\vert{} statusVal === 'فعال';  if (isActive) active++;  const isOnline = Boolean(sub.hasActiveSession); if (isOnline) online++; else offline++;  const expDate = new Date(sub.expires \vert{}\vert{} sub.expirationDate); const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24)); if (diffDays >= 0 && diffDays <= 7) expiringCount++; });  document.getElementById('stat-total').innerText = total; document.getElementById('stat-active').innerText = active; document.getElementById('stat-online').innerText = online; document.getElementById('stat-offline').innerText = offline; document.getElementById('stat-expiring').innerText = expiringCount; }  function filterOnlineStatus(mode) { if (mode === 'online') { renderTableRows(cachedSubscribers.filter(s => Boolean(s.hasActiveSession))); showToast("عرض المشتركين المتصلين الآن"); } else if (mode === 'offline') { renderTableRows(cachedSubscribers.filter(s => !Boolean(s.hasActiveSession))); showToast("عرض المشتركين غير المتصلين"); } else { renderTableRows(cachedSubscribers); showToast("عرض جميع المشتركين"); } }  function filterExpiringSoon() { const now = new Date(); const filtered = cachedSubscribers.filter(sub => { const diffDays = Math.ceil((new Date(sub.expires \vert{}\vert{} sub.expirationDate) - now) / (1000 * 60 * 60 * 24)); return diffDays >= 0 && diffDays <= 7; }); renderTableRows(filtered); showToast(`عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام (${filtered.length})`);
+        el.innerText = `${powerValue} dBm`;
+        el.className = 'font-mono font-bold text-cyan-500 dir-ltr text-sm animate-pulse';
+        setTimeout(() => el.classList.remove('animate-pulse'), 1000);
+    }
+}
+
+function updateGlobalStats(items) {
+    let total = items.length;
+    let active = 0;
+    let online = 0;
+    let offline = 0;
+    let expiringCount = 0;
+
+    const now = new Date();
+    items.forEach(sub => {
+        const statusVal = extractValue(sub.status);
+        const isActive = sub.isActive || statusVal.toLowerCase() === 'active' || statusVal === 'فعال';
+
+        if (isActive) active++;
+
+        const isOnline = Boolean(sub.hasActiveSession);
+        if (isOnline) online++;
+        else offline++;
+
+        const expDate = new Date(sub.expires || sub.expirationDate);
+        const diffDays = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 7) expiringCount++;
+    });
+
+    document.getElementById('stat-total').innerText = total;
+    document.getElementById('stat-active').innerText = active;
+    document.getElementById('stat-online').innerText = online;
+    document.getElementById('stat-offline').innerText = offline;
+    document.getElementById('stat-expiring').innerText = expiringCount;
+}
+
+function filterOnlineStatus(mode) {
+    if (mode === 'online') {
+        renderTableRows(cachedSubscribers.filter(s => Boolean(s.hasActiveSession)));
+        showToast("عرض المشتركين المتصلين الآن");
+    } else if (mode === 'offline') {
+        renderTableRows(cachedSubscribers.filter(s => !Boolean(s.hasActiveSession)));
+        showToast("عرض المشتركين غير المتصلين");
+    } else {
+        renderTableRows(cachedSubscribers);
+        showToast("عرض جميع المشتركين");
+    }
+}
+
+function filterExpiringSoon() {
+    const now = new Date();
+    const filtered = cachedSubscribers.filter(sub => {
+        const diffDays = Math.ceil((new Date(sub.expires || sub.expirationDate) - now) / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && diffDays <= 7;
+    });
+    renderTableRows(filtered);
+    showToast(`عرض المشتركين الذين تنتهي اشتراكاتهم خلال 7 أيام (${filtered.length})`);
 }
 
 function filterByActivationDate() {
@@ -226,7 +415,21 @@ function filterByActivationDate() {
         return started.startsWith(val);
     });
     renderTableRows(filtered);
-    showToast(`تصفية التفعيل بتاريخ: ${val}`); }  function clearDateFilter() { document.getElementById('filter-activation-date').value = ''; renderTableRows(cachedSubscribers); showToast("عرض كافة المشتركين"); }  function renderTableRows(items) { displayedSubscribers = items; const tbody = document.getElementById('subscribers-table-body'); const badge = document.getElementById('subscribers-count-badge');  if (badge) badge.innerText = `العدد: ${items.length}`;
+    showToast(`تصفية التفعيل بتاريخ: ${val}`);
+}
+
+function clearDateFilter() {
+    document.getElementById('filter-activation-date').value = '';
+    renderTableRows(cachedSubscribers);
+    showToast("عرض كافة المشتركين");
+}
+
+function renderTableRows(items) {
+    displayedSubscribers = items;
+    const tbody = document.getElementById('subscribers-table-body');
+    const badge = document.getElementById('subscribers-count-badge');
+    
+    if (badge) badge.innerText = `العدد: ${items.length}`;
     if (!tbody) return;
     tbody.innerHTML = '';
 
@@ -301,6 +504,7 @@ function sortSubscribersByName() {
         return sortNameAsc ? nameA.localeCompare(nameB, 'ar') : nameB.localeCompare(nameA, 'ar');
     });
     renderTableRows(displayedSubscribers);
+    showToast(sortNameAsc ? "ترتيب تصاعدي حسب الاسم" : "ترتيب تنازلي حسب الاسم");
 }
 
 let sortPowerDesc = true;
@@ -312,6 +516,7 @@ function sortSubscribersByPower() {
         return sortPowerDesc ? powerB - powerA : powerA - powerB;
     });
     renderTableRows(displayedSubscribers);
+    showToast(sortPowerDesc ? "ترتيب البور (الأعلى أولاً)" : "ترتيب البور (الأدنى أولاً)");
 }
 
 let sortOnlineAsc = true;
@@ -323,6 +528,7 @@ function sortSubscribersByOnlineStatus() {
         return sortOnlineAsc ? onlineB - onlineA : onlineA - onlineB;
     });
     renderTableRows(displayedSubscribers);
+    showToast(sortOnlineAsc ? "المتصلون في البداية" : "غير المتصلين في البداية");
 }
 
 let sortPlanAsc = true;
@@ -334,13 +540,12 @@ function sortSubscribersByPlanType() {
         return sortPlanAsc ? planA.localeCompare(planB, 'ar') : planB.localeCompare(planA, 'ar');
     });
     renderTableRows(displayedSubscribers);
+    showToast("ترتيب حسب نوع الباقة");
 }
 
-// تبديل حقول البطاقة الوطنية
 function toggleIdFields(type) {
     const nationalDiv = document.getElementById('field-national-card');
     const oldIdDiv = document.getElementById('field-old-id');
-    
     if (type === 'nationalCard') {
         nationalDiv.classList.remove('hidden');
         oldIdDiv.classList.add('hidden');
@@ -350,7 +555,6 @@ function toggleIdFields(type) {
     }
 }
 
-// إرسال العقد وتسجيل المشترك الجديد
 async function submitNewSubscriberContract(e) {
     e.preventDefault();
     const btn = document.getElementById('btn-submit-contract');
@@ -415,4 +619,297 @@ async function openSubscriberDetailPage(targetUsername, customerId) {
     const detailPage = document.getElementById('subscriber-detail-page');
     const container = document.getElementById('detail-content-card');
     
-    container.innerHTML = `<p class="text-center text-slate-400 py-16 animate-pulse font-bold text-base">جاري جلب ملف العميل الشامل وبيانات ال
+    container.innerHTML = `<p class="text-center text-slate-400 py-16 animate-pulse font-bold text-base">جاري جلب ملف العميل الشامل وبيانات الـ ONT...</p>`;
+    detailPage.classList.remove('hidden');
+
+    let customerData = null;
+    let ontData = null;
+
+    try {
+        const [custRes, ontRes] = await Promise.all([
+            fetch(`/api/ftth/customer/${customerId}`, { headers: { 'Authorization': authToken } }),
+            fetch(`/api/ftth/ont?username=${username}`, { headers: { 'Authorization': authToken } })
+        ]);
+
+        if (custRes.ok) customerData = await custRes.json();
+        if (ontRes.ok) ontData = await ontRes.json();
+    } catch (e) {}
+
+    container.innerHTML = '';
+
+    const customerSubs = customerData?.customerSubscriptions || [];
+    const matchedSub = customerSubs.find(s => cleanUsername(s.deviceDetails?.username || s.username) === username) || sub;
+
+    if (ontData?.model?.rxPower !== undefined) {
+        sub.rxPower = ontData.model.rxPower;
+        updatePowerCellInTable(username, sub.rxPower);
+    }
+
+    const custModel = customerData?.customer || {};
+    const primaryContact = custModel.primaryContact || {};
+    const addresses = custModel.addresses || [];
+    const primaryAddress = addresses[0] || {};
+    const gps = primaryAddress.gpsCoordinate || {};
+
+    let phoneNum = primaryContact.mobile || primaryContact.secondaryPhone || custModel.phone || sub.phone || 'غير مسجل';
+    let lat = gps.latitude || sub.latitude;
+    let lng = gps.longitude || sub.longitude;
+    let addressDisplay = primaryAddress.displayValue || 'العنوان غير متوفر';
+
+    let contactMapHtml = `
+        <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 text-xs">
+            <div class="text-amber-500 font-black border-b border-slate-200 dark:border-slate-700 pb-2 text-sm flex items-center gap-2">
+                📍 1. البيانات الشخصية والموقع الجغرافي
+            </div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400 font-bold">رقم الهاتف:</span><a href="tel:${phoneNum}" class="text-emerald-500 font-black text-sm dir-ltr">${phoneNum}</a></div>
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400 font-bold">العنوان:</span><span class="font-bold text-sm">${addressDisplay}</span></div>
+    `;
+    if (lat && lng) {
+        contactMapHtml += `
+            <div class="flex justify-between items-center"><span class="text-slate-500 dark:text-slate-400 font-bold">الإحداثيات:</span><span class="font-mono dir-ltr text-indigo-500 font-extrabold text-sm">${lat}, ${lng}</span></div>
+            <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" class="block w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-extrabold mt-2 shadow transition text-xs">🗺️ فتح الموقع على خرائط جوجل (Google Maps)</a>
+        `;
+    } else {
+        contactMapHtml += `<div class="text-slate-400 text-center py-1 font-bold">الإحداثيات الجغرافية غير متوفرة لهذا المشترك</div>`;
+    }
+    contactMapHtml += `</div>`;
+    container.innerHTML += contactMapHtml;
+
+    container.innerHTML += formatOntData(ontData, matchedSub.deviceDetails);
+    container.innerHTML += formatSessionDetails(matchedSub);
+
+    const excludedFields = [
+        'services', 'autoRenewPaymentMethod', 'bundleId', 'bundle', 
+        'publicIpsCount', 'totalQuotaInBytes', 'lineOfBusiness', 
+        '_isOnline', 'commitmentPeriod', 'activeSession', 'startedAt', 'phone', 'mobile', 'deviceDetails'
+    ];
+
+    const keyLabels = {
+        'customer': 'اسم المشترك',
+        'username': 'اسم المستخدم',
+        'partner': 'الوكيل المسؤول',
+        'status': 'حالة الاشتراك',
+        'expires': 'تاريخ الانتهاء',
+        'expirationDate': 'تاريخ الانتهاء',
+        'package': 'الباقة المفعلة',
+        'self': 'نوع الإشتراك',
+        'salesType': 'نوع الإشتراك',
+        'autoRenew': 'التجديد التلقائي',
+        'hasActiveSession': 'حالة الاتصال'
+    };
+
+    let baseInfoHtml = `
+        <div class="bg-cardLight dark:bg-cardDark p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3 text-xs">
+            <div class="text-emerald-500 font-black border-b border-slate-200 dark:border-slate-700 pb-2 text-sm flex items-center gap-2">📄 4. بيانات الاشتراك الأساسية والخدمة</div>
+            <div class="space-y-2">
+    `;
+    
+    for (const [key, value] of Object.entries(matchedSub)) {
+        if (excludedFields.includes(key)) continue;
+
+        const labelName = keyLabels[key] || key;
+        let displayVal = extractValue(value);
+
+        if (key === 'expires' || key === 'expirationDate') displayVal = formatDateClean(value);
+        else if (key === 'status') displayVal = (displayVal.toLowerCase() === 'active' || displayVal === 'فعال') ? 'فعال' : 'منتهي الصلاحية';
+        else if (key === 'autoRenew') displayVal = value ? 'مفعل' : 'غير مفعل';
+        else if (key === 'hasActiveSession') displayVal = value ? 'متصل' : 'غير متصل';
+        else if (key === 'username') displayVal = cleanUsername(displayVal);
+        else if (key === 'salesType' || key === 'package' || key === 'self') displayVal = getSubscriptionType(matchedSub);
+
+        baseInfoHtml += `
+            <div class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                <span class="text-slate-500 dark:text-slate-400 font-bold">${labelName}</span>
+                <span class="font-extrabold text-left dir-ltr break-all max-w-[200px] text-sm">${displayVal}</span>
+            </div>
+        `;
+    }
+    baseInfoHtml += `</div></div>`;
+    container.innerHTML += baseInfoHtml;
+}
+
+function closeSubscriberDetail() {
+    document.getElementById('subscriber-detail-page').classList.add('hidden');
+}
+
+async function loadAgents() {
+    try {
+        const res = await fetch('/api/admin/sub-agents');
+        if (handleAuthError(res)) return;
+
+        const agents = await res.json();
+        const list = document.getElementById('agents-list');
+        const select = document.getElementById('select-agent-assign');
+        
+        if (!Array.isArray(agents) || agents.length === 0) {
+            if(list) list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 font-bold">لا توجد وكلاء حالياً</p>`;
+            if(select) select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>';
+            return;
+        }
+
+        if(list) {
+            list.innerHTML = agents.map(a => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div><p class="text-xs font-black">${a.name}</p><p class="text-[10px] text-slate-500 font-mono">${a.username}</p></div>
+                    <span class="text-xs bg-indigo-500/10 text-indigo-500 px-3 py-1 rounded-full font-bold">${a.subscriber_count || 0} مشترك</span>
+                </div>
+            `).join('');
+        }
+
+        if(select) {
+            select.innerHTML = '<option value="">اختر وكيلاً ثانويًا...</option>' + agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+        }
+    } catch (e) {}
+}
+
+async function loadTickets() {
+    const list = document.getElementById('tickets-list');
+    if (!list) return;
+
+    list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 animate-pulse font-bold">جاري جلب تذاكر الدعم الفني...</p>`;
+
+    try {
+        const res = await fetch('/api/ftth/tickets', { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
+        const data = await res.json();
+        const items = data.items || [];
+
+        if (items.length === 0) {
+            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 font-bold">لا توجد تذاكر دعم فني حالية</p>`;
+            return;
+        }
+
+        list.innerHTML = items.map(t => {
+            const ticketDisplayId = t.displayId || t.id || 'N/A';
+            const subject = extractValue(t.self) || 'تذكرة دعم فني';
+            const summary = t.summary || 'بدون تفاصيل';
+            const status = t.status || 'مفتوحة';
+            const customerName = extractValue(t.customer) || 'غير معروف';
+            const zoneName = extractValue(t.zone) || 'N/A';
+            const dateStr = formatDateClean(t.createdAt);
+
+            return `
+                <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="font-black text-indigo-500 text-sm">تذكرة #${ticketDisplayId} (${subject})</span>
+                        <span class="px-3 py-1 rounded-lg font-bold ${status === 'Closed' || status === 'Resolved' ? 'bg-slate-200 dark:bg-slate-800 text-slate-500' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}">${status}</span>
+                    </div>
+                    <p class="bg-cardLight dark:bg-cardDark p-3 rounded-lg font-bold">${summary}</p>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs text-slate-500 pt-1 border-t border-slate-200 dark:border-slate-800 gap-1 font-semibold">
+                        <span>المشترك: <strong class="text-slate-700 dark:text-slate-300 font-extrabold">${customerName}</strong> | النطاق: ${zoneName}</span>
+                        <span>التاريخ: ${dateStr}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = `<p class="text-xs text-rose-500 text-center py-4 font-bold">تعذر جلب التذاكر</p>`;
+    }
+}
+
+async function loadRequestsTasks() {
+    const list = document.getElementById('tasks-list');
+    if (!list) return;
+
+    list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 animate-pulse font-bold">جاري جلب المهام الفنية والطلبات...</p>`;
+
+    try {
+        const res = await fetch('/api/ftth/requests', { headers: { 'Authorization': authToken } });
+        if (handleAuthError(res)) return;
+
+        const data = await res.json();
+        const items = data.items || [];
+
+        if (items.length === 0) {
+            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 font-bold">لا توجد مهام أو طلبات تنصيب معلقة حالياً</p>`;
+            return;
+        }
+
+        list.innerHTML = items.map(req => {
+            const customerObj = req.customer || {};
+            const customerName = extractValue(customerObj) || 'غير معروف';
+            const mobile = customerObj.contact?.mobile || 'غير متوفر';
+            const installCode = req.installationCode || 'N/A';
+            const statusVal = extractValue(req.status) || 'In Progress';
+            const zoneName = extractValue(req.zone) || 'N/A';
+            const dateStr = formatDateClean(req.createdAt);
+
+            return `
+                <div class="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2 text-xs">
+                    <div class="flex justify-between items-center">
+                        <span class="font-black text-amber-500 text-sm">طلب تنصيب (كود: ${installCode})</span>
+                        <span class="px-3 py-1 rounded-lg bg-blue-500/10 text-blue-500 border border-blue-500/20 font-bold">${statusVal}</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-cardLight dark:bg-cardDark p-3 rounded-lg font-bold">
+                        <div>اسم المشترك: <strong class="text-indigo-500">${customerName}</strong></div>
+                        <div>رقم الهاتف: <a href="tel:${mobile}" class="text-emerald-500 font-extrabold dir-ltr">${mobile}</a></div>
+                        <div>النطاق (Zone): <span>${zoneName}</span></div>
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-slate-500 pt-1 border-t border-slate-200 dark:border-slate-800 font-semibold">
+                        <span>تاريخ الإنشاء: ${dateStr}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = `<p class="text-xs text-rose-500 text-center py-4 font-bold">تعذر جلب المهام الفنية</p>`;
+    }
+}
+
+const addAgentForm = document.getElementById('add-agent-form');
+if(addAgentForm) {
+    addAgentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const res = await fetch('/api/admin/sub-agents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: document.getElementById('agent-name').value,
+                username: document.getElementById('agent-username').value,
+                password: document.getElementById('agent-password').value
+            })
+        });
+        if (res.ok) {
+            addAgentForm.reset();
+            loadAgents();
+            showToast("تم إنشاء الوكيل الثانوي بنجاح!");
+        } else {
+            const err = await res.json();
+            showToast(err.error || "فشل إضافة الوكيل", "error");
+        }
+    });
+}
+
+const selectAllCheckbox = document.getElementById('select-all');
+if(selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', (e) => {
+        document.querySelectorAll('.sub-check').forEach(cb => cb.checked = e.target.checked);
+    });
+}
+
+async function assignSelected() {
+    const agentId = document.getElementById('select-agent-assign').value;
+    const selectedBoxes = document.querySelectorAll('.sub-check:checked');
+    const subscriberIds = Array.from(selectedBoxes).map(cb => cb.value);
+
+    if (!agentId || subscriberIds.length === 0) {
+        showToast("يرجى اختيار الوكيل وتحديد مشترك واحد على الأقل", "error");
+        return;
+    }
+
+    const res = await fetch('/api/admin/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriberIds, subAgentId: agentId })
+    });
+    const data = await res.json();
+    showToast(data.message);
+    loadAgents();
+}
+
+function logout() {
+    localStorage.removeItem('ftth_token');
+    cachedSubscribers = [];
+    location.reload();
+}
